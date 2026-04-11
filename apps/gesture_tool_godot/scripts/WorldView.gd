@@ -184,9 +184,9 @@ func _pick_entity(screen_position: Vector2) -> int:
 
 	for snapshot in _entity_snapshots:
 		var point = snapshot.get("position", Vector3.ZERO)
-		var along_ray := maxf((point - ray_origin).dot(ray_direction), 0.0)
+		var along_ray: float = maxf((point - ray_origin).dot(ray_direction), 0.0)
 		var closest_point := ray_origin + ray_direction * along_ray
-		var distance_to_ray := point.distance_to(closest_point)
+		var distance_to_ray: float = point.distance_to(closest_point)
 		if distance_to_ray <= float(snapshot.get("radius", 0.35)) and along_ray < best_distance_along_ray:
 			best_distance_along_ray = along_ray
 			best_entity_index = int(snapshot.get("entity_index", -1))

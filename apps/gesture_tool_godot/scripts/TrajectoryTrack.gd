@@ -133,8 +133,8 @@ static func evaluate(track: Dictionary, time_sec: float) -> Dictionary:
 		var a_time := float(a.get("t", 0.0))
 		var b_time := float(b.get("t", 0.0))
 		if time_sec <= b_time:
-			var span := max(b_time - a_time, 0.0001)
-			var alpha := clamp((time_sec - a_time) / span, 0.0, 1.0)
+			var span: float = maxf(b_time - a_time, 0.0001)
+			var alpha: float = clampf((time_sec - a_time) / span, 0.0, 1.0)
 			return {
 				"position": array_to_vec3(a.get("position", [0.0, 0.0, 0.0])).lerp(
 					array_to_vec3(b.get("position", [0.0, 0.0, 0.0])),
@@ -164,11 +164,11 @@ static func sample_positions(track: Dictionary, sample_count: int = 64) -> Packe
 
 	var start_time := float(keys[0].get("t", 0.0))
 	var end_time := float(keys[keys.size() - 1].get("t", 0.0))
-	var resolved_samples := max(sample_count, keys.size())
+	var resolved_samples: int = maxi(sample_count, keys.size())
 
 	for index in range(resolved_samples + 1):
-		var alpha := float(index) / float(resolved_samples)
-		var time_sec := lerp(start_time, end_time, alpha)
+		var alpha: float = float(index) / float(resolved_samples)
+		var time_sec: float = lerpf(start_time, end_time, alpha)
 		var pose = evaluate(track, time_sec)
 		points.push_back(pose.get("position", Vector3.ZERO))
 

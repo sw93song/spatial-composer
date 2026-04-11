@@ -24,7 +24,7 @@ static func load_project(path: String, model: ProjectModel) -> bool:
 		push_error("Failed to open file for reading: %s" % path)
 		return false
 
-	var parsed := JSON.parse_string(file.get_as_text())
+	var parsed = JSON.parse_string(file.get_as_text())
 	if typeof(parsed) != TYPE_DICTIONARY:
 		push_error("Project JSON root must be an object")
 		return false

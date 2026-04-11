@@ -29,6 +29,6 @@ func advance(delta: float, current_position: Vector3) -> Vector3:
 		0.0,
 		-accel.y + gyro.x * 0.25
 	)
-	var response := clamp(delta * 6.0, 0.0, 1.0)
+	var response: float = clampf(delta * 6.0, 0.0, 1.0)
 	_velocity = _velocity.lerp(planar_motion * 1.6, response)
 	return current_position + _velocity * delta

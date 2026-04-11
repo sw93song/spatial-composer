@@ -9,7 +9,7 @@ static func bake_orbit(center: Vector3, radius: float, duration_sec: float, turn
 		"keys": []
 	}
 
-	var resolved_key_count := max(key_count, 4)
+	var resolved_key_count: int = maxi(key_count, 4)
 	for index in range(resolved_key_count + 1):
 		var alpha := float(index) / float(resolved_key_count)
 		var angle := TAU * turns * alpha
