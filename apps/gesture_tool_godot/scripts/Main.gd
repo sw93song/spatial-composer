@@ -13,7 +13,7 @@ var _updating_ui := false
 var _scene_drag_active := false
 var _scene_drag_position := Vector3.ZERO
 
-var _world_view: WorldView
+var _world_view
 var _viewport: SubViewport
 
 var _title_edit: LineEdit

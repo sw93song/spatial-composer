@@ -1,10 +1,10 @@
 extends Node3D
 class_name WorldView
 
-signal entity_selected(entity_index: int)
-signal ground_clicked(position: Vector3)
-signal ground_dragged(position: Vector3)
-signal drag_state_changed(active: bool)
+signal entity_selected(entity_index)
+signal ground_clicked(position)
+signal ground_dragged(position)
+signal drag_state_changed(active)
 
 var _camera: Camera3D
 var _world_nodes: Node3D
@@ -17,7 +17,7 @@ func _ready() -> void:
 	set_process_unhandled_input(true)
 
 
-func display_project(model: ProjectModel, time_sec: float, selected_entity_index: int, raw_trail := PackedVector3Array()) -> void:
+func display_project(model, time_sec: float, selected_entity_index: int, raw_trail = PackedVector3Array()) -> void:
 	if _world_nodes == null:
 		return
 
@@ -194,7 +194,7 @@ func _pick_entity(screen_position: Vector2) -> int:
 	return best_entity_index
 
 
-func _project_mouse_to_ground(screen_position: Vector2) -> Variant:
+func _project_mouse_to_ground(screen_position: Vector2):
 	if _camera == null:
 		return null
 

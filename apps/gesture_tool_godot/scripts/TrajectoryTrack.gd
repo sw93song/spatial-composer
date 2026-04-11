@@ -101,7 +101,7 @@ static func find_key_index_at_time(track: Dictionary, time_sec: float) -> int:
 
 static func sort_keys(track: Dictionary) -> void:
 	var keys = track.get("keys", [])
-	keys.sort_custom(_sort_key_ascending)
+	keys.sort_custom(Callable(TrajectoryTrack, "_sort_key_ascending"))
 	track["keys"] = keys
 
 
