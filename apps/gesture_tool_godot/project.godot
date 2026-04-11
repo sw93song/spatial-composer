@@ -1,0 +1,14 @@
+; Engine configuration file.
+; Minimal standalone Godot companion app for trajectory authoring.
+
+config_version=5
+
+[application]
+
+config/name="Wouldyou Gesture Tool"
+run/main_scene="res://scenes/Main.tscn"
+config/icon="res://icon.svg"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"

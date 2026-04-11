@@ -1,0 +1,81 @@
+{
+  "format_version": 1,
+  "project": {
+    "title": "simple_orbit",
+    "sample_rate": 48000,
+    "duration_sec": 8.0,
+    "tempo_bpm": 120.0
+  },
+  "listener": {
+    "id": "listener_main",
+    "track": {
+      "space": "world",
+      "interpolation": "linear",
+      "keys": [
+        {
+          "t": 0.0,
+          "position": [0.0, 0.0, 0.0],
+          "rotation_euler_deg": [0.0, 0.0, 0.0],
+          "ease_in": "auto",
+          "ease_out": "auto"
+        },
+        {
+          "t": 8.0,
+          "position": [0.0, 0.0, 0.0],
+          "rotation_euler_deg": [0.0, 0.0, 0.0],
+          "ease_in": "auto",
+          "ease_out": "auto"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "src_orbit",
+      "audio_asset": "assets/demo.wav",
+      "gain_db": 0.0,
+      "track": {
+        "space": "world",
+        "interpolation": "linear",
+        "keys": [
+          {
+            "t": 0.0,
+            "position": [2.0, 0.0, 0.0],
+            "rotation_euler_deg": [0.0, 90.0, 0.0],
+            "ease_in": "auto",
+            "ease_out": "auto"
+          },
+          {
+            "t": 2.0,
+            "position": [0.0, 0.0, 2.0],
+            "rotation_euler_deg": [0.0, 180.0, 0.0],
+            "ease_in": "auto",
+            "ease_out": "auto"
+          },
+          {
+            "t": 4.0,
+            "position": [-2.0, 0.0, 0.0],
+            "rotation_euler_deg": [0.0, 270.0, 0.0],
+            "ease_in": "auto",
+            "ease_out": "auto"
+          },
+          {
+            "t": 6.0,
+            "position": [0.0, 0.0, -2.0],
+            "rotation_euler_deg": [0.0, 360.0, 0.0],
+            "ease_in": "auto",
+            "ease_out": "auto"
+          },
+          {
+            "t": 8.0,
+            "position": [2.0, 0.0, 0.0],
+            "rotation_euler_deg": [0.0, 450.0, 0.0],
+            "ease_in": "auto",
+            "ease_out": "auto"
+          }
+        ]
+      }
+    }
+  ],
+  "groups": []
+}

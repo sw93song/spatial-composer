@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wouldyou.local/schemas/project.schema.json",
+  "title": "Spatial Composer Project",
+  "type": "object",
+  "required": [
+    "format_version",
+    "project",
+    "listener",
+    "sources",
+    "groups"
+  ],
+  "properties": {
+    "format_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "project": {
+      "type": "object",
+      "required": [
+        "title",
+        "sample_rate",
+        "duration_sec",
+        "tempo_bpm"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "sample_rate": {
+          "type": "integer",
+          "minimum": 8000
+        },
+        "duration_sec": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "tempo_bpm": {
+          "type": "number",
+          "minimum": 1.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "listener": {
+      "$ref": "#/$defs/tracked_entity"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source_entity"
+      }
+    },
+    "groups": {
+      "type": "array"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "track_key": {
+      "type": "object",
+      "required": [
+        "t",
+        "position",
+        "rotation_euler_deg",
+        "ease_in",
+        "ease_out"
+      ],
+      "properties": {
+        "t": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "position": {
+          "$ref": "#/$defs/vec3"
+        },
+        "rotation_euler_deg": {
+          "$ref": "#/$defs/vec3"
+        },
+        "ease_in": {
+          "type": "string"
+        },
+        "ease_out": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "trajectory_track": {
+      "type": "object",
+      "required": [
+        "space",
+        "interpolation",
+        "keys"
+      ],
+      "properties": {
+        "space": {
+          "type": "string",
+          "enum": [
+            "world",
+            "listener",
+            "group"
+          ]
+        },
+        "interpolation": {
+          "type": "string",
+          "enum": [
+            "linear",
+            "bezier",
+            "catmull_rom"
+          ]
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/track_key"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "tracked_entity": {
+      "type": "object",
+      "required": [
+        "id",
+        "track"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "track": {
+          "$ref": "#/$defs/trajectory_track"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_entity": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/tracked_entity"
+        },
+        {
+          "type": "object",
+          "required": [
+            "audio_asset",
+            "gain_db"
+          ],
+          "properties": {
+            "audio_asset": {
+              "type": "string"
+            },
+            "gain_db": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

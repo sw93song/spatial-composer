@@ -1,0 +1,78 @@
+{
+  "format_version": 1,
+  "project": {
+    "title": "listener_flythrough",
+    "sample_rate": 48000,
+    "duration_sec": 6.0,
+    "tempo_bpm": 100.0
+  },
+  "listener": {
+    "id": "listener_main",
+    "track": {
+      "space": "world",
+      "interpolation": "linear",
+      "keys": [
+        {
+          "t": 0.0,
+          "position": [-3.0, 0.0, -1.5],
+          "rotation_euler_deg": [0.0, 30.0, 0.0],
+          "ease_in": "auto",
+          "ease_out": "auto"
+        },
+        {
+          "t": 3.0,
+          "position": [0.0, 0.0, 0.0],
+          "rotation_euler_deg": [0.0, 0.0, 0.0],
+          "ease_in": "auto",
+          "ease_out": "auto"
+        },
+        {
+          "t": 6.0,
+          "position": [3.0, 0.0, 1.5],
+          "rotation_euler_deg": [0.0, -30.0, 0.0],
+          "ease_in": "auto",
+          "ease_out": "auto"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "src_pad_left",
+      "audio_asset": "assets/pad_left.wav",
+      "gain_db": -3.0,
+      "track": {
+        "space": "world",
+        "interpolation": "linear",
+        "keys": [
+          {
+            "t": 0.0,
+            "position": [-2.5, 0.0, 2.5],
+            "rotation_euler_deg": [0.0, 180.0, 0.0],
+            "ease_in": "auto",
+            "ease_out": "auto"
+          }
+        ]
+      }
+    },
+    {
+      "id": "src_pad_right",
+      "audio_asset": "assets/pad_right.wav",
+      "gain_db": -3.0,
+      "track": {
+        "space": "world",
+        "interpolation": "linear",
+        "keys": [
+          {
+            "t": 0.0,
+            "position": [2.5, 0.0, -2.5],
+            "rotation_euler_deg": [0.0, 0.0, 0.0],
+            "ease_in": "auto",
+            "ease_out": "auto"
+          }
+        ]
+      }
+    }
+  ],
+  "groups": []
+}

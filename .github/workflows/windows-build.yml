@@ -1,0 +1,53 @@
+name: windows-build
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  build-cli:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake --preset windows-msvc
+
+      - name: Build
+        run: cmake --build --preset windows-msvc
+
+      - name: Smoke Test
+        shell: pwsh
+        run: |
+          .\build\windows-msvc\apps\spatial_preview_cli\Release\spatial_preview_cli.exe summary .\shared\examples\simple_orbit\project.json
+          .\build\windows-msvc\apps\spatial_preview_cli\Release\spatial_preview_cli.exe eval .\shared\examples\listener_flythrough\project.json 3.0
+          .\build\windows-msvc\apps\spatial_preview_cli\Release\spatial_preview_cli.exe render .\shared\examples\simple_orbit\project.json .\build\windows-msvc\simple_orbit_preview.wav
+
+      - name: TCP Live Sync Smoke Test
+        shell: pwsh
+        run: |
+          $job = Start-Job -ScriptBlock {
+            & ".\build\windows-msvc\apps\spatial_preview_cli\Release\spatial_preview_cli.exe" tcp-render-once ".\build\windows-msvc\tcp_live_preview.wav" 49090 10000
+          }
+          Start-Sleep -Milliseconds 800
+          $client = [System.Net.Sockets.TcpClient]::new("127.0.0.1", 49090)
+          $stream = $client.GetStream()
+          $payload = [System.IO.File]::ReadAllBytes(".\shared\examples\simple_orbit\project.json")
+          $header = [System.Text.Encoding]::UTF8.GetBytes("$($payload.Length)`n")
+          $stream.Write($header, 0, $header.Length)
+          $stream.Write($payload, 0, $payload.Length)
+          $client.Client.Shutdown([System.Net.Sockets.SocketShutdown]::Send)
+          $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8)
+          $ack = $reader.ReadLine()
+          $client.Close()
+          Receive-Job -Job $job -Wait -AutoRemoveJob | Out-Host
+          if ($ack -notlike "OK*") {
+            throw "Unexpected live-sync acknowledgement: $ack"
+          }
+          if (-not (Test-Path ".\build\windows-msvc\tcp_live_preview.wav")) {
+            throw "TCP live-sync render output was not created."
+          }
