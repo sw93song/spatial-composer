@@ -22,9 +22,9 @@ var _entity_list: ItemList
 var _key_list: ItemList
 var _time_spin: SpinBox
 var _key_time_spin: SpinBox
-var _position_spins: Array[SpinBox] = []
-var _rotation_spins: Array[SpinBox] = []
-var _orbit_center_spins: Array[SpinBox] = []
+var _position_spins: Array = []
+var _rotation_spins: Array = []
+var _orbit_center_spins: Array = []
 var _orbit_radius_spin: SpinBox
 var _orbit_duration_spin: SpinBox
 var _orbit_turns_spin: SpinBox
@@ -300,8 +300,8 @@ func _labeled_row(label_text: String, field: Control) -> HBoxContainer:
 	return row
 
 
-func _make_vec3_editors(parent: VBoxContainer, title: String) -> Array[SpinBox]:
-	var editors: Array[SpinBox] = []
+func _make_vec3_editors(parent: VBoxContainer, title: String) -> Array:
+	var editors: Array = []
 	parent.add_child(_make_section_label(title))
 	for axis in ["X", "Y", "Z"]:
 		var spin := _make_spin_box(-100.0, 100.0, 0.1)
@@ -335,10 +335,10 @@ func _refresh_entity_list() -> void:
 
 func _refresh_key_list() -> void:
 	_key_list.clear()
-	var track: Dictionary = _project_model.get_entity_track(_selected_entity_index)
-	var keys: Array = track.get("keys", [])
+	var track = _project_model.get_entity_track(_selected_entity_index)
+	var keys = track.get("keys", [])
 	for index in range(keys.size()):
-		var key: Dictionary = keys[index]
+		var key = keys[index]
 		var position := TrajectoryTrack.array_to_vec3(key.get("position", [0.0, 0.0, 0.0]))
 		_key_list.add_item(
 			"t=%.2f  pos=(%.2f, %.2f, %.2f)" % [
@@ -356,12 +356,12 @@ func _refresh_key_list() -> void:
 
 func _refresh_pose_fields() -> void:
 	_updating_ui = true
-	var track: Dictionary = _project_model.get_entity_track(_selected_entity_index)
-	var keys: Array = track.get("keys", [])
-	var display_pose: Dictionary
+	var track = _project_model.get_entity_track(_selected_entity_index)
+	var keys = track.get("keys", [])
+	var display_pose
 
 	if _selected_key_index >= 0 and _selected_key_index < keys.size():
-		var key: Dictionary = keys[_selected_key_index]
+		var key = keys[_selected_key_index]
 		_key_time_spin.value = float(key.get("t", _current_time_sec))
 		display_pose = {
 			"position": TrajectoryTrack.array_to_vec3(key.get("position", [0.0, 0.0, 0.0])),
@@ -371,8 +371,8 @@ func _refresh_pose_fields() -> void:
 		_key_time_spin.value = _current_time_sec
 		display_pose = _project_model.get_entity_pose(_selected_entity_index, _current_time_sec)
 
-	var position: Vector3 = display_pose.get("position", Vector3.ZERO)
-	var rotation_deg: Vector3 = display_pose.get("rotation_euler_deg", Vector3.ZERO)
+	var position = display_pose.get("position", Vector3.ZERO)
+	var rotation_deg = display_pose.get("rotation_euler_deg", Vector3.ZERO)
 	for axis in range(3):
 		_position_spins[axis].value = position[axis]
 		_rotation_spins[axis].value = rotation_deg[axis]
@@ -424,7 +424,7 @@ func _read_rotation_from_inspector() -> Vector3:
 
 func _set_selected_entity_pose(time_sec: float, position: Vector3, rotation_deg: Vector3) -> void:
 	var entity := _project_model.get_entity(_selected_entity_index)
-	var track: Dictionary = entity.get("track", TrajectoryTrack.make_default_track())
+	var track = entity.get("track", TrajectoryTrack.make_default_track())
 	_selected_key_index = TrajectoryTrack.add_or_replace_key(
 		track,
 		TrajectoryTrack.make_key(time_sec, position, rotation_deg)
@@ -596,7 +596,7 @@ func _on_add_key_pressed() -> void:
 
 func _on_delete_key_pressed() -> void:
 	var entity := _project_model.get_entity(_selected_entity_index)
-	var track: Dictionary = entity.get("track", TrajectoryTrack.make_default_track())
+	var track = entity.get("track", TrajectoryTrack.make_default_track())
 	TrajectoryTrack.remove_key(track, _selected_key_index)
 	entity["track"] = track
 	_project_model.set_entity(_selected_entity_index, entity)
@@ -607,8 +607,8 @@ func _on_delete_key_pressed() -> void:
 
 func _on_key_selected(index: int) -> void:
 	_selected_key_index = index
-	var track: Dictionary = _project_model.get_entity_track(_selected_entity_index)
-	var keys: Array = track.get("keys", [])
+	var track = _project_model.get_entity_track(_selected_entity_index)
+	var keys = track.get("keys", [])
 	if index >= 0 and index < keys.size():
 		_current_time_sec = float(keys[index].get("t", _current_time_sec))
 	_refresh_pose_fields()
@@ -617,7 +617,7 @@ func _on_key_selected(index: int) -> void:
 
 func _on_apply_key_pressed() -> void:
 	var entity := _project_model.get_entity(_selected_entity_index)
-	var track: Dictionary = entity.get("track", TrajectoryTrack.make_default_track())
+	var track = entity.get("track", TrajectoryTrack.make_default_track())
 	var key := _build_key_from_inspector()
 	if _selected_key_index >= 0 and _selected_key_index < track.get("keys", []).size():
 		TrajectoryTrack.update_key(track, _selected_key_index, key)

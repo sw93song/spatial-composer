@@ -28,10 +28,10 @@ static func normalize_track(track: Dictionary) -> Dictionary:
 		"keys": []
 	}
 
-	var input_keys: Array = track.get("keys", [])
+	var input_keys = track.get("keys", [])
 	for key_value in input_keys:
 		if key_value is Dictionary:
-			var key: Dictionary = key_value
+			var key = key_value
 			normalized["keys"].append({
 				"t": float(key.get("t", 0.0)),
 				"position": vec3_to_array(array_to_vec3(key.get("position", [0.0, 0.0, 0.0]))),
@@ -48,7 +48,7 @@ static func normalize_track(track: Dictionary) -> Dictionary:
 
 
 static func add_or_replace_key(track: Dictionary, key: Dictionary) -> int:
-	var keys: Array = track.get("keys", [])
+	var keys = track.get("keys", [])
 	var target_time := float(key.get("t", 0.0))
 
 	for index in range(keys.size()):
@@ -65,7 +65,7 @@ static func add_or_replace_key(track: Dictionary, key: Dictionary) -> int:
 
 
 static func remove_key(track: Dictionary, index: int) -> void:
-	var keys: Array = track.get("keys", [])
+	var keys = track.get("keys", [])
 	if index < 0 or index >= keys.size():
 		return
 	keys.remove_at(index)
@@ -76,7 +76,7 @@ static func remove_key(track: Dictionary, index: int) -> void:
 
 
 static func update_key(track: Dictionary, index: int, key: Dictionary) -> void:
-	var keys: Array = track.get("keys", [])
+	var keys = track.get("keys", [])
 	if index < 0 or index >= keys.size():
 		return
 	keys[index] = key
@@ -85,14 +85,14 @@ static func update_key(track: Dictionary, index: int, key: Dictionary) -> void:
 
 
 static func get_key(track: Dictionary, index: int) -> Dictionary:
-	var keys: Array = track.get("keys", [])
+	var keys = track.get("keys", [])
 	if index < 0 or index >= keys.size():
 		return make_key(0.0, Vector3.ZERO, Vector3.ZERO)
 	return keys[index]
 
 
 static func find_key_index_at_time(track: Dictionary, time_sec: float) -> int:
-	var keys: Array = track.get("keys", [])
+	var keys = track.get("keys", [])
 	for index in range(keys.size()):
 		if is_equal_approx(float(keys[index].get("t", 0.0)), time_sec):
 			return index
@@ -100,29 +100,27 @@ static func find_key_index_at_time(track: Dictionary, time_sec: float) -> int:
 
 
 static func sort_keys(track: Dictionary) -> void:
-	var keys: Array = track.get("keys", [])
-	keys.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return float(a.get("t", 0.0)) < float(b.get("t", 0.0))
-	)
+	var keys = track.get("keys", [])
+	keys.sort_custom(_sort_key_ascending)
 	track["keys"] = keys
 
 
 static func evaluate(track: Dictionary, time_sec: float) -> Dictionary:
-	var keys: Array = track.get("keys", [])
+	var keys = track.get("keys", [])
 	if keys.is_empty():
 		return {
 			"position": Vector3.ZERO,
 			"rotation_euler_deg": Vector3.ZERO
 		}
 
-	var first_key: Dictionary = keys[0]
+	var first_key = keys[0]
 	if time_sec <= float(first_key.get("t", 0.0)):
 		return {
 			"position": array_to_vec3(first_key.get("position", [0.0, 0.0, 0.0])),
 			"rotation_euler_deg": array_to_vec3(first_key.get("rotation_euler_deg", [0.0, 0.0, 0.0]))
 		}
 
-	var last_key: Dictionary = keys[keys.size() - 1]
+	var last_key = keys[keys.size() - 1]
 	if time_sec >= float(last_key.get("t", 0.0)):
 		return {
 			"position": array_to_vec3(last_key.get("position", [0.0, 0.0, 0.0])),
@@ -130,8 +128,8 @@ static func evaluate(track: Dictionary, time_sec: float) -> Dictionary:
 		}
 
 	for index in range(1, keys.size()):
-		var a: Dictionary = keys[index - 1]
-		var b: Dictionary = keys[index]
+		var a = keys[index - 1]
+		var b = keys[index]
 		var a_time := float(a.get("t", 0.0))
 		var b_time := float(b.get("t", 0.0))
 		if time_sec <= b_time:
@@ -156,7 +154,7 @@ static func evaluate(track: Dictionary, time_sec: float) -> Dictionary:
 
 static func sample_positions(track: Dictionary, sample_count: int = 64) -> PackedVector3Array:
 	var points := PackedVector3Array()
-	var keys: Array = track.get("keys", [])
+	var keys = track.get("keys", [])
 	if keys.is_empty():
 		return points
 
@@ -171,10 +169,14 @@ static func sample_positions(track: Dictionary, sample_count: int = 64) -> Packe
 	for index in range(resolved_samples + 1):
 		var alpha := float(index) / float(resolved_samples)
 		var time_sec := lerp(start_time, end_time, alpha)
-		var pose: Dictionary = evaluate(track, time_sec)
+		var pose = evaluate(track, time_sec)
 		points.push_back(pose.get("position", Vector3.ZERO))
 
 	return points
+
+
+static func _sort_key_ascending(a, b) -> bool:
+	return float(a.get("t", 0.0)) < float(b.get("t", 0.0))
 
 
 static func vec3_to_array(value: Vector3) -> Array:

@@ -62,7 +62,7 @@ func add_source() -> int:
 		"gain_db": 0.0,
 		"track": TrajectoryTrack.make_default_track()
 	}
-	var first_key: Dictionary = source["track"]["keys"][0]
+	var first_key = source["track"]["keys"][0]
 	first_key["position"] = [2.0 + float(sources.size()), 0.0, 0.0]
 	source["track"]["keys"][0] = first_key
 	sources.append(source)

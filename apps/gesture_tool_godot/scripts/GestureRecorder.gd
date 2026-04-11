@@ -80,7 +80,7 @@ func get_trail_points() -> PackedVector3Array:
 
 func _append_sample(time_sec: float, position: Vector3, rotation_deg: Vector3) -> void:
 	if not _samples.is_empty():
-		var last_sample: Dictionary = _samples[_samples.size() - 1]
+		var last_sample = _samples[_samples.size() - 1]
 		var last_position := TrajectoryTrack.array_to_vec3(last_sample.get("position", [0.0, 0.0, 0.0]))
 		if last_position.distance_to(position) < 0.001 and is_equal_approx(float(last_sample.get("t", 0.0)), time_sec):
 			return
@@ -96,9 +96,9 @@ func _simplify_samples(samples: Array) -> Array:
 	var last_kept_index := 0
 
 	for index in range(1, samples.size() - 1):
-		var candidate: Dictionary = samples[index]
+		var candidate = samples[index]
 		var candidate_position := TrajectoryTrack.array_to_vec3(candidate.get("position", [0.0, 0.0, 0.0]))
-		var last_kept: Dictionary = samples[last_kept_index]
+		var last_kept = samples[last_kept_index]
 		var last_kept_position := TrajectoryTrack.array_to_vec3(last_kept.get("position", [0.0, 0.0, 0.0]))
 		var candidate_time := float(candidate.get("t", 0.0))
 		var last_kept_time := float(last_kept.get("t", 0.0))

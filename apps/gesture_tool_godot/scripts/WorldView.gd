@@ -183,7 +183,7 @@ func _pick_entity(screen_position: Vector2) -> int:
 	var best_distance_along_ray := INF
 
 	for snapshot in _entity_snapshots:
-		var point: Vector3 = snapshot.get("position", Vector3.ZERO)
+		var point = snapshot.get("position", Vector3.ZERO)
 		var along_ray := maxf((point - ray_origin).dot(ray_direction), 0.0)
 		var closest_point := ray_origin + ray_direction * along_ray
 		var distance_to_ray := point.distance_to(closest_point)
