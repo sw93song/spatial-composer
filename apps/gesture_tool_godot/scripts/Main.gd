@@ -244,7 +244,6 @@ func _build_ui():
 
 	_viewport = SubViewport.new()
 	_viewport.handle_input_locally = true
-	_viewport.usage = SubViewport.USAGE_3D
 	_viewport.msaa_3d = Viewport.MSAA_4X
 	viewport_container.add_child(_viewport)
 
@@ -304,7 +303,7 @@ func _make_vec3_editors(parent, title):
 	var editors: Array = []
 	parent.add_child(_make_section_label(title))
 	for axis in ["X", "Y", "Z"]:
-		var spin := _make_spin_box(-100.0, 100.0, 0.1)
+		var spin = _make_spin_box(-100.0, 100.0, 0.1)
 		parent.add_child(_labeled_row(axis, spin))
 		editors.append(spin)
 	return editors
@@ -447,12 +446,12 @@ func _process_recording(delta):
 		_project_model.set_duration(_current_time_sec)
 		_refresh_project_fields()
 
-	var pose := _get_live_selected_pose()
+	var pose = _get_live_selected_pose()
 	if _motion_controller.is_enabled():
 		_scene_drag_active = true
 		_scene_drag_position = _motion_controller.advance(delta, pose.get("position", Vector3.ZERO))
 		pose["position"] = _scene_drag_position
-	var rotation_deg := _read_rotation_from_inspector()
+	var rotation_deg = _read_rotation_from_inspector()
 	pose["rotation_euler_deg"] = rotation_deg
 	_set_selected_entity_pose(_current_time_sec, pose.get("position", Vector3.ZERO), rotation_deg)
 	_gesture_recorder.update(delta, pose.get("position", Vector3.ZERO), rotation_deg)
@@ -470,8 +469,8 @@ func _toggle_play():
 
 func _toggle_recording():
 	if _gesture_recorder.is_recording_active():
-		var final_pose := _get_live_selected_pose()
-		var final_rotation := _read_rotation_from_inspector()
+		var final_pose = _get_live_selected_pose()
+		var final_rotation = _read_rotation_from_inspector()
 		var entity := _project_model.get_entity(_selected_entity_index)
 		entity["track"] = _gesture_recorder.finish(
 			final_pose.get("position", Vector3.ZERO),
@@ -625,7 +624,7 @@ func _on_key_selected(index):
 func _on_apply_key_pressed():
 	var entity := _project_model.get_entity(_selected_entity_index)
 	var track = entity.get("track", TrajectoryTrack.make_default_track())
-	var key := _build_key_from_inspector()
+	var key = _build_key_from_inspector()
 	if _selected_key_index >= 0 and _selected_key_index < track.get("keys", []).size():
 		TrajectoryTrack.update_key(track, _selected_key_index, key)
 	else:
