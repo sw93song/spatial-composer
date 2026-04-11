@@ -11,8 +11,9 @@
 namespace spatial_preview {
 
 AudioBuffer load_audio_file_with_miniaudio(const std::string& asset_path) {
+  ma_decoder_config decoder_config = ma_decoder_config_init(ma_format_f32, 0, 0);
   ma_decoder decoder{};
-  if (ma_decoder_init_file(asset_path.c_str(), nullptr, &decoder) != MA_SUCCESS) {
+  if (ma_decoder_init_file(asset_path.c_str(), &decoder_config, &decoder) != MA_SUCCESS) {
     throw std::runtime_error("miniaudio failed to open asset: " + asset_path);
   }
 
