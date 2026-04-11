@@ -20,6 +20,25 @@ double db_to_linear(const double value_db) {
   return std::pow(10.0, value_db / 20.0);
 }
 
+bool is_finite(const double value) {
+  return std::isfinite(value);
+}
+
+bool is_finite_vec3(const Vec3& value) {
+  return is_finite(value.x) && is_finite(value.y) && is_finite(value.z);
+}
+
+double length_squared(const Vec3& value) {
+  return value.x * value.x + value.y * value.y + value.z * value.z;
+}
+
+Vec3 sanitize_vec3(const Vec3& value, const Vec3& fallback) {
+  if (!is_finite_vec3(value)) {
+    return fallback;
+  }
+  return value;
+}
+
 Vec3 rotate_x(const Vec3& value, const double radians) {
   const double c = std::cos(radians);
   const double s = std::sin(radians);
@@ -165,8 +184,13 @@ AudioBuffer render_with_steam_audio(const Project& project, AudioAssetRegistry& 
     const double time_sec =
         static_cast<double>(block_start) / static_cast<double>(project.metadata.sample_rate);
     const Transform listener = evaluator.evaluate(project.listener.track, time_sec);
-    const Vec3 listener_ahead = rotate_local_to_world({0.0, 0.0, -1.0}, listener.rotation_euler_deg);
-    const Vec3 listener_up = rotate_local_to_world({0.0, 1.0, 0.0}, listener.rotation_euler_deg);
+    const Vec3 listener_position = sanitize_vec3(listener.position, {0.0, 0.0, 0.0});
+    const Vec3 listener_rotation =
+        sanitize_vec3(listener.rotation_euler_deg, {0.0, 0.0, 0.0});
+    const Vec3 listener_ahead =
+        sanitize_vec3(rotate_local_to_world({0.0, 0.0, -1.0}, listener_rotation), {0.0, 0.0, -1.0});
+    const Vec3 listener_up =
+        sanitize_vec3(rotate_local_to_world({0.0, 1.0, 0.0}, listener_rotation), {0.0, 1.0, 0.0});
 
     for (std::size_t source_index = 0; source_index < project.sources.size(); ++source_index) {
       std::fill(input_channel.begin(), input_channel.end(), 0.0f);
@@ -175,7 +199,11 @@ AudioBuffer render_with_steam_audio(const Project& project, AudioAssetRegistry& 
 
       const auto& source = project.sources[source_index];
       const Transform source_transform = evaluator.evaluate(source.track, time_sec);
-      const Vec3 relative_world = source_transform.position - listener.position;
+      const Vec3 source_position = sanitize_vec3(source_transform.position, listener_position);
+      Vec3 relative_world = source_position - listener_position;
+      if (!is_finite_vec3(relative_world) || length_squared(relative_world) < 1e-8) {
+        relative_world = listener_ahead * 0.25;
+      }
       const double distance = std::sqrt(relative_world.x * relative_world.x +
                                         relative_world.y * relative_world.y +
                                         relative_world.z * relative_world.z);
@@ -195,8 +223,8 @@ AudioBuffer render_with_steam_audio(const Project& project, AudioAssetRegistry& 
       IPLBinauralEffectParams params{};
       params.direction = iplCalculateRelativeDirection(
           context,
-          to_ipl(source_transform.position),
-          to_ipl(listener.position),
+          to_ipl(source_position),
+          to_ipl(listener_position),
           to_ipl(listener_ahead),
           to_ipl(listener_up));
       params.interpolation = IPL_HRTFINTERPOLATION_BILINEAR;
@@ -208,11 +236,16 @@ AudioBuffer render_with_steam_audio(const Project& project, AudioAssetRegistry& 
 
       for (int frame = 0; frame < block_frames; ++frame) {
         const std::size_t out_index = (block_start + static_cast<std::size_t>(frame)) * 2;
+        const float left_sample = std::isfinite(left_channel[static_cast<std::size_t>(frame)])
+                                      ? left_channel[static_cast<std::size_t>(frame)]
+                                      : 0.0f;
+        const float right_sample = std::isfinite(right_channel[static_cast<std::size_t>(frame)])
+                                       ? right_channel[static_cast<std::size_t>(frame)]
+                                       : 0.0f;
         output.samples[out_index] = std::clamp(
-            output.samples[out_index] + left_channel[static_cast<std::size_t>(frame)], -1.0f, 1.0f);
+            output.samples[out_index] + left_sample, -1.0f, 1.0f);
         output.samples[out_index + 1] = std::clamp(
-            output.samples[out_index + 1] + right_channel[static_cast<std::size_t>(frame)], -1.0f,
-            1.0f);
+            output.samples[out_index + 1] + right_sample, -1.0f, 1.0f);
       }
     }
   }
