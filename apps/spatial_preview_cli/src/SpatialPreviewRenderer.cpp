@@ -77,7 +77,7 @@ Vec3 rotate_local_to_world(const Vec3& value, const Vec3& rotation_deg) {
 
 float read_mono_sample(const AudioBuffer& buffer, double frame_position) {
   const std::size_t frame_count = buffer.frame_count();
-  if (frame_count == 0 || buffer.channels <= 0) {
+  if (frame_count == 0 || buffer.channels <= 0 || !std::isfinite(frame_position)) {
     return 0.0f;
   }
 
@@ -101,7 +101,11 @@ float read_mono_sample(const AudioBuffer& buffer, double frame_position) {
 
   const float a = mono_frame(frame_a);
   const float b = mono_frame(frame_b);
-  return static_cast<float>(a + (b - a) * alpha);
+  const double blended = static_cast<double>(a) + static_cast<double>(b - a) * alpha;
+  if (!std::isfinite(blended)) {
+    return 0.0f;
+  }
+  return static_cast<float>(blended);
 }
 
 #if defined(WOULDYOU_HAS_STEAM_AUDIO)
@@ -215,9 +219,11 @@ AudioBuffer render_with_steam_audio(const Project& project, AudioAssetRegistry& 
       for (int frame = 0; frame < block_frames; ++frame) {
         const double source_frame = (time_sec + static_cast<double>(frame) /
                                                    static_cast<double>(project.metadata.sample_rate)) *
-                                    static_cast<double>(buffer.sample_rate);
-        input_channel[static_cast<std::size_t>(frame)] = static_cast<float>(
-            static_cast<double>(read_mono_sample(buffer, source_frame)) * attenuation * source_gain);
+                                    static_cast<double>(std::max(buffer.sample_rate, 1));
+        const double input_sample =
+            static_cast<double>(read_mono_sample(buffer, source_frame)) * attenuation * source_gain;
+        input_channel[static_cast<std::size_t>(frame)] =
+            std::isfinite(input_sample) ? static_cast<float>(input_sample) : 0.0f;
       }
 
       IPLBinauralEffectParams params{};

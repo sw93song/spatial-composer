@@ -1,5 +1,6 @@
 #include "spatial_preview/MiniaudioIO.hpp"
 
+#include <cmath>
 #include <stdexcept>
 #include <vector>
 
@@ -33,6 +34,18 @@ AudioBuffer load_audio_file_with_miniaudio(const std::string& asset_path) {
     throw std::runtime_error("miniaudio failed to read frames: " + asset_path);
   }
   buffer.samples.resize(static_cast<std::size_t>(frames_read) * buffer.channels);
+
+  if (buffer.sample_rate <= 0) {
+    buffer.sample_rate = 48000;
+  }
+  if (buffer.channels <= 0) {
+    buffer.channels = 1;
+  }
+  for (float& sample : buffer.samples) {
+    if (!std::isfinite(sample)) {
+      sample = 0.0f;
+    }
+  }
 
   ma_decoder_uninit(&decoder);
   return buffer;
