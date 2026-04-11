@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <filesystem>
+#include <iostream>
 #include <numbers>
 #include <stdexcept>
 
@@ -51,6 +52,9 @@ const AudioBuffer& AudioAssetRegistry::load_or_generate(const std::string& asset
   if (!asset_path.empty() && std::filesystem::exists(asset_path)) {
     buffer = load_audio_file_with_miniaudio(asset_path);
   } else {
+    std::cerr << "warning: audio asset not found for source '" << source_id
+              << "': " << (asset_path.empty() ? "<empty>" : asset_path)
+              << " -- using generated fallback tone\n";
     buffer = generate_fallback_tone(source_id, project_sample_rate);
   }
 
