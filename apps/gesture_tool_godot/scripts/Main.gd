@@ -12,6 +12,7 @@ var _is_playing := false
 var _updating_ui := false
 var _scene_drag_active := false
 var _scene_drag_position := Vector3.ZERO
+var _live_sync_dirty_during_drag := false
 
 var _world_view
 var _viewport
@@ -727,21 +728,29 @@ func _on_world_ground_clicked(position):
 	_scene_drag_position = position
 	_set_selected_entity_pose(_current_time_sec, position, _read_rotation_from_inspector())
 	_refresh_all()
-	_maybe_send_live_snapshot()
+	if not _scene_drag_active:
+		_maybe_send_live_snapshot()
 
 
 func _on_world_ground_dragged(position):
 	_scene_drag_active = true
+	_live_sync_dirty_during_drag = true
 	_scene_drag_position = position
 	_set_selected_entity_pose(_current_time_sec, position, _read_rotation_from_inspector())
 	_refresh_key_list()
 	_refresh_pose_fields()
 	_refresh_world_and_pose()
-	_maybe_send_live_snapshot()
 
 
 func _on_world_drag_state_changed(active):
 	_scene_drag_active = active
+	if active:
+		_live_sync_dirty_during_drag = false
+		return
+
+	if _live_sync_dirty_during_drag:
+		_live_sync_dirty_during_drag = false
+		_maybe_send_live_snapshot()
 
 
 func _on_sensor_toggled(enabled):
