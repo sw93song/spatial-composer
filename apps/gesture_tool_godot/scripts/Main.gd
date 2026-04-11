@@ -14,30 +14,30 @@ var _scene_drag_active := false
 var _scene_drag_position := Vector3.ZERO
 
 var _world_view
-var _viewport: SubViewport
+var _viewport
 
-var _title_edit: LineEdit
-var _duration_spin: SpinBox
-var _entity_list: ItemList
-var _key_list: ItemList
-var _time_spin: SpinBox
-var _key_time_spin: SpinBox
+var _title_edit
+var _duration_spin
+var _entity_list
+var _key_list
+var _time_spin
+var _key_time_spin
 var _position_spins: Array = []
 var _rotation_spins: Array = []
 var _orbit_center_spins: Array = []
-var _orbit_radius_spin: SpinBox
-var _orbit_duration_spin: SpinBox
-var _orbit_turns_spin: SpinBox
-var _record_button: Button
-var _sensor_checkbox: CheckBox
-var _live_sync_checkbox: CheckBox
-var _live_sync_host_edit: LineEdit
-var _live_sync_port_spin: SpinBox
-var _live_sync_hint_label: Label
-var _status_label: Label
-var _help_label: Label
-var _import_dialog: FileDialog
-var _export_dialog: FileDialog
+var _orbit_radius_spin
+var _orbit_duration_spin
+var _orbit_turns_spin
+var _record_button
+var _sensor_checkbox
+var _live_sync_checkbox
+var _live_sync_host_edit
+var _live_sync_port_spin
+var _live_sync_hint_label
+var _status_label
+var _help_label
+var _import_dialog
+var _export_dialog
 
 
 func _ready() -> void:
@@ -300,7 +300,7 @@ func _labeled_row(label_text: String, field: Control) -> HBoxContainer:
 	return row
 
 
-func _make_vec3_editors(parent: VBoxContainer, title: String) -> Array:
+func _make_vec3_editors(parent: VBoxContainer, title: String):
 	var editors: Array = []
 	parent.add_child(_make_section_label(title))
 	for axis in ["X", "Y", "Z"]:
@@ -398,7 +398,7 @@ func _sync_time_controls() -> void:
 	_updating_ui = false
 
 
-func _build_key_from_inspector() -> Dictionary:
+func _build_key_from_inspector():
 	return TrajectoryTrack.make_key(
 		_key_time_spin.value,
 		_read_position_from_inspector(),
@@ -433,7 +433,7 @@ func _set_selected_entity_pose(time_sec: float, position: Vector3, rotation_deg:
 	_project_model.set_entity(_selected_entity_index, entity)
 
 
-func _get_live_selected_pose() -> Dictionary:
+func _get_live_selected_pose():
 	var pose := _project_model.get_entity_pose(_selected_entity_index, _current_time_sec)
 	if _scene_drag_active:
 		pose["position"] = _scene_drag_position
@@ -495,11 +495,18 @@ func _toggle_recording() -> void:
 func _update_record_button() -> void:
 	if _record_button == null:
 		return
-	_record_button.text = "Stop Rec" if _gesture_recorder.is_recording_active() else "Record"
+	if _gesture_recorder.is_recording_active():
+		_record_button.text = "Stop Rec"
+	else:
+		_record_button.text = "Record"
 
 
 func _update_status_text() -> void:
-	var mode := "recording" if _gesture_recorder.is_recording_active() else ("playing" if _is_playing else "idle")
+	var mode = "idle"
+	if _gesture_recorder.is_recording_active():
+		mode = "recording"
+	elif _is_playing:
+		mode = "playing"
 	if _status_label == null:
 		return
 	_status_label.text = "Selected: %s | time %.2f s | mode: %s | drag samples: %d" % [
