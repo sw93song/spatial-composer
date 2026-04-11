@@ -25,6 +25,7 @@ var _key_time_spin
 var _position_spins: Array = []
 var _rotation_spins: Array = []
 var _orbit_center_spins: Array = []
+var _audio_asset_edit
 var _orbit_radius_spin
 var _orbit_duration_spin
 var _orbit_turns_spin
@@ -38,6 +39,8 @@ var _status_label
 var _help_label
 var _import_dialog
 var _export_dialog
+var _audio_dialog
+var _audio_dialog_mode = ""
 
 
 func _ready():
@@ -128,9 +131,13 @@ func _build_ui():
 	sidebar_body.add_child(_make_section_label("Entities"))
 	var entity_buttons := HBoxContainer.new()
 	var add_source_button := Button.new()
-	add_source_button.text = "Add Source"
-	add_source_button.pressed.connect(_on_add_source_pressed)
+	add_source_button.text = "Add Audio Source..."
+	add_source_button.pressed.connect(_on_add_audio_source_pressed)
 	entity_buttons.add_child(add_source_button)
+	var assign_audio_button := Button.new()
+	assign_audio_button.text = "Set Selected Audio..."
+	assign_audio_button.pressed.connect(_on_assign_audio_pressed)
+	entity_buttons.add_child(assign_audio_button)
 	var delete_entity_button := Button.new()
 	delete_entity_button.text = "Delete Source"
 	delete_entity_button.pressed.connect(_on_delete_source_pressed)
@@ -172,6 +179,19 @@ func _build_ui():
 	sidebar_body.add_child(_key_list)
 
 	sidebar_body.add_child(_make_section_label("Inspector"))
+	_audio_asset_edit = LineEdit.new()
+	_audio_asset_edit.placeholder_text = "Select a WAV file for the selected source"
+	sidebar_body.add_child(_labeled_row("Audio File", _audio_asset_edit))
+	var audio_buttons := HBoxContainer.new()
+	var browse_audio_button := Button.new()
+	browse_audio_button.text = "Browse Audio..."
+	browse_audio_button.pressed.connect(_on_assign_audio_pressed)
+	audio_buttons.add_child(browse_audio_button)
+	var apply_audio_button := Button.new()
+	apply_audio_button.text = "Apply Audio Path"
+	apply_audio_button.pressed.connect(_on_apply_audio_path_pressed)
+	audio_buttons.add_child(apply_audio_button)
+	sidebar_body.add_child(audio_buttons)
 	_key_time_spin = _make_spin_box(0.0, 600.0, 0.01)
 	sidebar_body.add_child(_labeled_row("Key Time", _key_time_spin))
 
@@ -268,6 +288,16 @@ func _build_ui():
 	_export_dialog.file_selected.connect(_on_export_file_selected)
 	add_child(_export_dialog)
 
+	_audio_dialog = FileDialog.new()
+	_audio_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_audio_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_audio_dialog.filters = PackedStringArray([
+		"*.wav ; WAV Audio",
+		"*.wave ; WAVE Audio"
+	])
+	_audio_dialog.file_selected.connect(_on_audio_file_selected)
+	add_child(_audio_dialog)
+
 	call_deferred("_on_resized")
 	_update_record_button()
 
@@ -312,6 +342,7 @@ func _make_vec3_editors(parent, title):
 func _refresh_all():
 	_refresh_project_fields()
 	_refresh_entity_list()
+	_refresh_audio_fields()
 	_refresh_key_list()
 	_refresh_pose_fields()
 	_refresh_world_and_pose()
@@ -351,6 +382,22 @@ func _refresh_key_list():
 	_selected_key_index = clamp(_selected_key_index, 0, max(keys.size() - 1, 0))
 	if not keys.is_empty():
 		_key_list.select(_selected_key_index)
+
+
+func _refresh_audio_fields():
+	if _audio_asset_edit == null:
+		return
+
+	if _selected_entity_index == 0:
+		_audio_asset_edit.text = ""
+		_audio_asset_edit.editable = false
+		_audio_asset_edit.placeholder_text = "Listener has no audio asset"
+		return
+
+	var entity = _project_model.get_entity(_selected_entity_index)
+	_audio_asset_edit.text = str(entity.get("audio_asset", ""))
+	_audio_asset_edit.editable = true
+	_audio_asset_edit.placeholder_text = "Select a WAV file for the selected source"
 
 
 func _refresh_pose_fields():
@@ -556,6 +603,19 @@ func _on_add_source_pressed():
 	_maybe_send_live_snapshot()
 
 
+func _on_add_audio_source_pressed():
+	_audio_dialog_mode = "add"
+	_audio_dialog.popup_centered_ratio()
+
+
+func _on_assign_audio_pressed():
+	if _selected_entity_index == 0:
+		_set_status_message("Select a source first. The listener does not have an audio file.")
+		return
+	_audio_dialog_mode = "assign"
+	_audio_dialog.popup_centered_ratio()
+
+
 func _on_delete_source_pressed():
 	if _selected_entity_index == 0:
 		return
@@ -727,8 +787,57 @@ func _on_export_file_selected(path):
 	_set_status_message("Exported %s" % path)
 
 
+func _on_audio_file_selected(path):
+	var resolved_path = _normalize_audio_asset_path(path)
+	if _audio_dialog_mode == "add":
+		_selected_entity_index = _project_model.add_source(resolved_path)
+		_selected_key_index = 0
+		_refresh_all()
+		_set_status_message("Added source with audio: %s" % resolved_path)
+		_maybe_send_live_snapshot()
+		return
+
+	if _audio_dialog_mode == "assign":
+		_set_selected_source_audio_asset(resolved_path)
+
+
+func _on_apply_audio_path_pressed():
+	if _selected_entity_index == 0:
+		_set_status_message("Select a source first. The listener does not have an audio file.")
+		return
+	var path = _normalize_audio_asset_path(_audio_asset_edit.text.strip_edges())
+	if path.is_empty():
+		_set_status_message("Enter or choose a WAV file path.")
+		return
+	_set_selected_source_audio_asset(path)
+
+
 func _configure_live_sync():
 	_live_sync_client.configure(_live_sync_host_edit.text, int(_live_sync_port_spin.value))
+
+
+func _set_selected_source_audio_asset(path):
+	if _selected_entity_index == 0:
+		_set_status_message("Select a source first. The listener does not have an audio file.")
+		return
+	var entity := _project_model.get_entity(_selected_entity_index)
+	entity["audio_asset"] = path
+	_project_model.set_entity(_selected_entity_index, entity)
+	_refresh_audio_fields()
+	_set_status_message("Audio file set: %s" % path)
+	_maybe_send_live_snapshot()
+
+
+func _normalize_audio_asset_path(path):
+	var normalized = path.replace("\\", "/")
+	if normalized.is_empty():
+		return normalized
+
+	var project_root = ProjectSettings.globalize_path("res://").replace("\\", "/").trim_suffix("/")
+	var repo_root = project_root.get_base_dir().get_base_dir().replace("\\", "/")
+	if normalized.begins_with(repo_root + "/"):
+		return normalized.trim_prefix(repo_root + "/")
+	return normalized
 
 
 func _maybe_send_live_snapshot():

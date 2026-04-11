@@ -54,11 +54,14 @@ func to_dict() -> Dictionary:
 	}
 
 
-func add_source() -> int:
+func add_source(audio_asset_path: String = "") -> int:
 	var source_index := sources.size() + 1
+	var resolved_audio_asset := audio_asset_path
+	if resolved_audio_asset.is_empty():
+		resolved_audio_asset = "assets/demo.wav"
 	var source := {
 		"id": _make_unique_source_id("src_%02d" % source_index),
-		"audio_asset": "assets/demo.wav",
+		"audio_asset": resolved_audio_asset,
 		"gain_db": 0.0,
 		"track": TrajectoryTrack.make_default_track()
 	}
