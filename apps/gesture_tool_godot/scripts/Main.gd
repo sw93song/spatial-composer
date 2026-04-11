@@ -40,7 +40,7 @@ var _import_dialog
 var _export_dialog
 
 
-func _ready() -> void:
+func _ready():
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	resized.connect(_on_resized)
 	_build_ui()
@@ -49,7 +49,7 @@ func _ready() -> void:
 	set_process_unhandled_input(true)
 
 
-func _process(delta: float) -> void:
+func _process(delta):
 	if _gesture_recorder.is_recording_active():
 		_process_recording(delta)
 		return
@@ -65,7 +65,7 @@ func _process(delta: float) -> void:
 	_refresh_world_and_pose()
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _unhandled_input(event):
 	if event is InputEventKey and event.pressed and not event.echo:
 		if _import_dialog.visible or _export_dialog.visible:
 			return
@@ -85,7 +85,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 
 
-func _build_ui() -> void:
+func _build_ui():
 	var root := HSplitContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.split_offset = 380
@@ -273,14 +273,14 @@ func _build_ui() -> void:
 	_update_record_button()
 
 
-func _make_section_label(text_value: String) -> Label:
+func _make_section_label(text_value):
 	var label := Label.new()
 	label.text = text_value
 	label.add_theme_font_size_override("font_size", 18)
 	return label
 
 
-func _make_spin_box(min_value: float, max_value: float, step: float) -> SpinBox:
+func _make_spin_box(min_value, max_value, step):
 	var spin := SpinBox.new()
 	spin.min_value = min_value
 	spin.max_value = max_value
@@ -290,7 +290,7 @@ func _make_spin_box(min_value: float, max_value: float, step: float) -> SpinBox:
 	return spin
 
 
-func _labeled_row(label_text: String, field: Control) -> HBoxContainer:
+func _labeled_row(label_text, field):
 	var row := HBoxContainer.new()
 	var label := Label.new()
 	label.text = label_text
@@ -300,7 +300,7 @@ func _labeled_row(label_text: String, field: Control) -> HBoxContainer:
 	return row
 
 
-func _make_vec3_editors(parent: VBoxContainer, title: String):
+func _make_vec3_editors(parent, title):
 	var editors: Array = []
 	parent.add_child(_make_section_label(title))
 	for axis in ["X", "Y", "Z"]:
@@ -310,7 +310,7 @@ func _make_vec3_editors(parent: VBoxContainer, title: String):
 	return editors
 
 
-func _refresh_all() -> void:
+func _refresh_all():
 	_refresh_project_fields()
 	_refresh_entity_list()
 	_refresh_key_list()
@@ -318,7 +318,7 @@ func _refresh_all() -> void:
 	_refresh_world_and_pose()
 
 
-func _refresh_project_fields() -> void:
+func _refresh_project_fields():
 	_updating_ui = true
 	_title_edit.text = str(_project_model.project.get("title", "untitled"))
 	_duration_spin.value = float(_project_model.project.get("duration_sec", 8.0))
@@ -326,14 +326,14 @@ func _refresh_project_fields() -> void:
 	_updating_ui = false
 
 
-func _refresh_entity_list() -> void:
+func _refresh_entity_list():
 	_entity_list.clear()
 	for entity_index in range(_project_model.get_entity_count()):
 		_entity_list.add_item(_project_model.get_entity_label(entity_index))
 	_entity_list.select(clamp(_selected_entity_index, 0, max(_project_model.get_entity_count() - 1, 0)))
 
 
-func _refresh_key_list() -> void:
+func _refresh_key_list():
 	_key_list.clear()
 	var track = _project_model.get_entity_track(_selected_entity_index)
 	var keys = track.get("keys", [])
@@ -354,7 +354,7 @@ func _refresh_key_list() -> void:
 		_key_list.select(_selected_key_index)
 
 
-func _refresh_pose_fields() -> void:
+func _refresh_pose_fields():
 	_updating_ui = true
 	var track = _project_model.get_entity_track(_selected_entity_index)
 	var keys = track.get("keys", [])
@@ -381,7 +381,7 @@ func _refresh_pose_fields() -> void:
 	_updating_ui = false
 
 
-func _refresh_world_and_pose() -> void:
+func _refresh_world_and_pose():
 	_sync_time_controls()
 	_world_view.display_project(
 		_project_model,
@@ -392,7 +392,7 @@ func _refresh_world_and_pose() -> void:
 	_update_status_text()
 
 
-func _sync_time_controls() -> void:
+func _sync_time_controls():
 	_updating_ui = true
 	_time_spin.value = _current_time_sec
 	_updating_ui = false
@@ -406,7 +406,7 @@ func _build_key_from_inspector():
 	)
 
 
-func _read_position_from_inspector() -> Vector3:
+func _read_position_from_inspector():
 	return Vector3(
 		_position_spins[0].value,
 		_position_spins[1].value,
@@ -414,7 +414,7 @@ func _read_position_from_inspector() -> Vector3:
 	)
 
 
-func _read_rotation_from_inspector() -> Vector3:
+func _read_rotation_from_inspector():
 	return Vector3(
 		_rotation_spins[0].value,
 		_rotation_spins[1].value,
@@ -422,7 +422,7 @@ func _read_rotation_from_inspector() -> Vector3:
 	)
 
 
-func _set_selected_entity_pose(time_sec: float, position: Vector3, rotation_deg: Vector3) -> void:
+func _set_selected_entity_pose(time_sec, position, rotation_deg):
 	var entity := _project_model.get_entity(_selected_entity_index)
 	var track = entity.get("track", TrajectoryTrack.make_default_track())
 	_selected_key_index = TrajectoryTrack.add_or_replace_key(
@@ -440,7 +440,7 @@ func _get_live_selected_pose():
 	return pose
 
 
-func _process_recording(delta: float) -> void:
+func _process_recording(delta):
 	_is_playing = false
 	_current_time_sec += delta
 	if _current_time_sec > float(_project_model.project.get("duration_sec", 8.0)):
@@ -461,14 +461,14 @@ func _process_recording(delta: float) -> void:
 	_refresh_world_and_pose()
 
 
-func _toggle_play() -> void:
+func _toggle_play():
 	if _gesture_recorder.is_recording_active():
 		return
 	_is_playing = not _is_playing
 	_update_status_text()
 
 
-func _toggle_recording() -> void:
+func _toggle_recording():
 	if _gesture_recorder.is_recording_active():
 		var final_pose := _get_live_selected_pose()
 		var final_rotation := _read_rotation_from_inspector()
@@ -492,7 +492,7 @@ func _toggle_recording() -> void:
 	_maybe_send_live_snapshot()
 
 
-func _update_record_button() -> void:
+func _update_record_button():
 	if _record_button == null:
 		return
 	if _gesture_recorder.is_recording_active():
@@ -501,7 +501,7 @@ func _update_record_button() -> void:
 		_record_button.text = "Record"
 
 
-func _update_status_text() -> void:
+func _update_status_text():
 	var mode = "idle"
 	if _gesture_recorder.is_recording_active():
 		mode = "recording"
@@ -517,12 +517,12 @@ func _update_status_text() -> void:
 	]
 
 
-func _on_resized() -> void:
+func _on_resized():
 	if _viewport != null:
 		_viewport.size = Vector2i(max(size.x - 380.0, 320.0), max(size.y, 240.0))
 
 
-func _on_new_project_pressed() -> void:
+func _on_new_project_pressed():
 	_project_model.reset_default()
 	_gesture_recorder.reset()
 	_selected_entity_index = 0
@@ -535,14 +535,14 @@ func _on_new_project_pressed() -> void:
 	_maybe_send_live_snapshot()
 
 
-func _on_title_changed(new_text: String) -> void:
+func _on_title_changed(new_text):
 	if _updating_ui:
 		return
 	_project_model.set_project_title(new_text)
 	_refresh_world_and_pose()
 
 
-func _on_duration_changed(value: float) -> void:
+func _on_duration_changed(value):
 	if _updating_ui:
 		return
 	_project_model.set_duration(value)
@@ -550,14 +550,14 @@ func _on_duration_changed(value: float) -> void:
 	_refresh_all()
 
 
-func _on_add_source_pressed() -> void:
+func _on_add_source_pressed():
 	_selected_entity_index = _project_model.add_source()
 	_selected_key_index = 0
 	_refresh_all()
 	_maybe_send_live_snapshot()
 
 
-func _on_delete_source_pressed() -> void:
+func _on_delete_source_pressed():
 	if _selected_entity_index == 0:
 		return
 	_project_model.remove_source(_selected_entity_index - 1)
@@ -567,7 +567,7 @@ func _on_delete_source_pressed() -> void:
 	_maybe_send_live_snapshot()
 
 
-func _on_entity_selected(index: int) -> void:
+func _on_entity_selected(index):
 	_selected_entity_index = index
 	_selected_key_index = 0
 	_refresh_key_list()
@@ -575,7 +575,7 @@ func _on_entity_selected(index: int) -> void:
 	_refresh_world_and_pose()
 
 
-func _on_time_changed(value: float) -> void:
+func _on_time_changed(value):
 	if _updating_ui or _gesture_recorder.is_recording_active():
 		return
 	_current_time_sec = value
@@ -583,15 +583,15 @@ func _on_time_changed(value: float) -> void:
 	_refresh_world_and_pose()
 
 
-func _on_play_toggle_pressed() -> void:
+func _on_play_toggle_pressed():
 	_toggle_play()
 
 
-func _on_record_toggle_pressed() -> void:
+func _on_record_toggle_pressed():
 	_toggle_recording()
 
 
-func _on_add_key_pressed() -> void:
+func _on_add_key_pressed():
 	_set_selected_entity_pose(
 		_current_time_sec,
 		_read_position_from_inspector(),
@@ -601,7 +601,7 @@ func _on_add_key_pressed() -> void:
 	_maybe_send_live_snapshot()
 
 
-func _on_delete_key_pressed() -> void:
+func _on_delete_key_pressed():
 	var entity := _project_model.get_entity(_selected_entity_index)
 	var track = entity.get("track", TrajectoryTrack.make_default_track())
 	TrajectoryTrack.remove_key(track, _selected_key_index)
@@ -612,7 +612,7 @@ func _on_delete_key_pressed() -> void:
 	_maybe_send_live_snapshot()
 
 
-func _on_key_selected(index: int) -> void:
+func _on_key_selected(index):
 	_selected_key_index = index
 	var track = _project_model.get_entity_track(_selected_entity_index)
 	var keys = track.get("keys", [])
@@ -622,7 +622,7 @@ func _on_key_selected(index: int) -> void:
 	_refresh_world_and_pose()
 
 
-func _on_apply_key_pressed() -> void:
+func _on_apply_key_pressed():
 	var entity := _project_model.get_entity(_selected_entity_index)
 	var track = entity.get("track", TrajectoryTrack.make_default_track())
 	var key := _build_key_from_inspector()
@@ -637,7 +637,7 @@ func _on_apply_key_pressed() -> void:
 	_maybe_send_live_snapshot()
 
 
-func _on_bake_orbit_pressed() -> void:
+func _on_bake_orbit_pressed():
 	var entity := _project_model.get_entity(_selected_entity_index)
 	var center := Vector3(
 		_orbit_center_spins[0].value,
@@ -658,20 +658,20 @@ func _on_bake_orbit_pressed() -> void:
 	_maybe_send_live_snapshot()
 
 
-func _on_world_entity_selected(index: int) -> void:
+func _on_world_entity_selected(index):
 	_selected_entity_index = index
 	_selected_key_index = 0
 	_refresh_all()
 
 
-func _on_world_ground_clicked(position: Vector3) -> void:
+func _on_world_ground_clicked(position):
 	_scene_drag_position = position
 	_set_selected_entity_pose(_current_time_sec, position, _read_rotation_from_inspector())
 	_refresh_all()
 	_maybe_send_live_snapshot()
 
 
-func _on_world_ground_dragged(position: Vector3) -> void:
+func _on_world_ground_dragged(position):
 	_scene_drag_active = true
 	_scene_drag_position = position
 	_set_selected_entity_pose(_current_time_sec, position, _read_rotation_from_inspector())
@@ -681,36 +681,36 @@ func _on_world_ground_dragged(position: Vector3) -> void:
 	_maybe_send_live_snapshot()
 
 
-func _on_world_drag_state_changed(active: bool) -> void:
+func _on_world_drag_state_changed(active):
 	_scene_drag_active = active
 
 
-func _on_sensor_toggled(enabled: bool) -> void:
+func _on_sensor_toggled(enabled):
 	_motion_controller.set_enabled(enabled)
 
 
-func _on_live_sync_toggled(_enabled: bool) -> void:
+func _on_live_sync_toggled(_enabled):
 	_configure_live_sync()
 
 
-func _on_live_sync_endpoint_changed(_value) -> void:
+func _on_live_sync_endpoint_changed(_value):
 	_configure_live_sync()
 
 
-func _on_send_snapshot_pressed() -> void:
+func _on_send_snapshot_pressed():
 	_send_live_snapshot()
 
 
-func _on_import_pressed() -> void:
+func _on_import_pressed():
 	_import_dialog.popup_centered_ratio()
 
 
-func _on_export_pressed() -> void:
+func _on_export_pressed():
 	_export_dialog.current_file = "%s.json" % _project_model.project.get("title", "project")
 	_export_dialog.popup_centered_ratio()
 
 
-func _on_import_file_selected(path: String) -> void:
+func _on_import_file_selected(path):
 	if JsonSerializer.load_project(path, _project_model):
 		_gesture_recorder.reset()
 		_selected_entity_index = 0
@@ -723,21 +723,21 @@ func _on_import_file_selected(path: String) -> void:
 		_maybe_send_live_snapshot()
 
 
-func _on_export_file_selected(path: String) -> void:
+func _on_export_file_selected(path):
 	JsonSerializer.save_project(path, _project_model)
 	_set_status_message("Exported %s" % path)
 
 
-func _configure_live_sync() -> void:
+func _configure_live_sync():
 	_live_sync_client.configure(_live_sync_host_edit.text, int(_live_sync_port_spin.value))
 
 
-func _maybe_send_live_snapshot() -> void:
+func _maybe_send_live_snapshot():
 	if _live_sync_checkbox != null and _live_sync_checkbox.button_pressed:
 		_send_live_snapshot()
 
 
-func _send_live_snapshot() -> void:
+func _send_live_snapshot():
 	_configure_live_sync()
 	var result := _live_sync_client.send_project_json(JsonSerializer.project_to_json_string(_project_model))
 	if result.get("ok", false):
@@ -750,6 +750,6 @@ func _send_live_snapshot() -> void:
 		_set_status_message("Live sync failed: %s" % result.get("message", "unknown error"))
 
 
-func _set_status_message(message: String) -> void:
+func _set_status_message(message):
 	if _status_label != null:
 		_status_label.text = message
