@@ -123,7 +123,8 @@ AudioBuffer render_with_steam_audio(const Project& project, AudioAssetRegistry& 
   IPLContextSettings context_settings{};
   context_settings.version = STEAMAUDIO_VERSION;
   context_settings.simdLevel = IPL_SIMDLEVEL_AVX2;
-  context_settings.flags = IPL_CONTEXTFLAGS_VALIDATION;
+  // Keep runtime preview quiet and resilient. We sanitize buffers ourselves.
+  context_settings.flags = static_cast<IPLContextFlags>(0);
 
   IPLContext context{};
   if (iplContextCreate(&context_settings, &context) != IPL_STATUS_SUCCESS) {
