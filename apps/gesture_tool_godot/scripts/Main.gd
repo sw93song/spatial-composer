@@ -296,6 +296,7 @@ func _build_ui():
 
 	_viewport = SubViewport.new()
 	_viewport.handle_input_locally = true
+	_viewport.audio_listener_enable_3d = true
 	_viewport.msaa_3d = Viewport.MSAA_4X
 	viewport_container.add_child(_viewport)
 

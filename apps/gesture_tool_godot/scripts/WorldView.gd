@@ -82,6 +82,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _build_static_scene() -> void:
 	_camera = Camera3D.new()
+	_camera.current = true
 	_camera.position = Vector3(7.0, 6.0, 7.0)
 	_camera.look_at(Vector3.ZERO, Vector3.UP)
 	add_child(_camera)
