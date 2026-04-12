@@ -306,6 +306,7 @@ func _build_ui():
 	_world_view.ground_clicked.connect(_on_world_ground_clicked)
 	_world_view.ground_dragged.connect(_on_world_ground_dragged)
 	_world_view.drag_state_changed.connect(_on_world_drag_state_changed)
+	_world_view.preview_status_changed.connect(_on_preview_status_changed)
 	_viewport.add_child(_world_view)
 
 	_import_dialog = FileDialog.new()
@@ -835,6 +836,11 @@ func _on_local_preview_toggled(enabled):
 	if _world_view != null:
 		_world_view.set_audio_preview_enabled(enabled)
 	_refresh_world_and_pose()
+
+
+func _on_preview_status_changed(message):
+	_last_live_sync_message = message
+	_update_status_text()
 
 
 func _on_live_sync_toggled(_enabled):

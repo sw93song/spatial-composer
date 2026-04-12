@@ -5,6 +5,7 @@ signal entity_selected(entity_index)
 signal ground_clicked(position)
 signal ground_dragged(position)
 signal drag_state_changed(active)
+signal preview_status_changed(message)
 
 var _camera: Camera3D
 var _world_nodes: Node3D
@@ -15,6 +16,7 @@ var _preview_audio_player: AudioStreamPlayer3D
 var _audio_preview_enabled := true
 var _preview_audio_path := ""
 var _audio_stream_cache := {}
+var _last_preview_status := "Local preview idle"
 
 
 func _ready() -> void:
@@ -226,6 +228,7 @@ func set_audio_preview_enabled(enabled):
 	_audio_preview_enabled = enabled
 	if not _audio_preview_enabled and _preview_audio_player != null:
 		_preview_audio_player.stop()
+	_set_preview_status("Local preview disabled")
 
 
 func _sync_audio_preview(model, time_sec, selected_entity_index):
@@ -239,11 +242,14 @@ func _sync_audio_preview(model, time_sec, selected_entity_index):
 
 	if not _audio_preview_enabled or selected_entity_index <= 0:
 		_preview_audio_player.stop()
+		if selected_entity_index <= 0:
+			_set_preview_status("Select a source to hear local preview")
 		return
 
 	var source_index = selected_entity_index - 1
 	if source_index < 0 or source_index >= model.sources.size():
 		_preview_audio_player.stop()
+		_set_preview_status("Selected source is unavailable")
 		return
 
 	var source = model.sources[source_index]
@@ -255,6 +261,7 @@ func _sync_audio_preview(model, time_sec, selected_entity_index):
 	var resolved_path = _resolve_audio_asset_path(str(source.get("audio_asset", "")))
 	if resolved_path.is_empty():
 		_preview_audio_player.stop()
+		_set_preview_status("Selected source has no audio file")
 		return
 
 	if resolved_path != _preview_audio_path:
@@ -263,10 +270,12 @@ func _sync_audio_preview(model, time_sec, selected_entity_index):
 		_preview_audio_player.stream = _load_audio_stream(resolved_path)
 
 	if _preview_audio_player.stream == null:
+		_set_preview_status("Local preview missing WAV: %s" % resolved_path)
 		return
 
 	if not _preview_audio_player.playing:
 		_preview_audio_player.play()
+	_set_preview_status("Local preview playing: %s" % resolved_path.get_file())
 
 
 func _load_audio_stream(path):
@@ -292,4 +301,19 @@ func _resolve_audio_asset_path(path):
 
 	var project_root = ProjectSettings.globalize_path("res://").replace("\\", "/").trim_suffix("/")
 	var repo_root = project_root.get_base_dir().get_base_dir().replace("\\", "/")
-	return repo_root.path_join(normalized)
+	var repo_path = repo_root.path_join(normalized)
+	if FileAccess.file_exists(repo_path):
+		return repo_path
+
+	var project_path = project_root.path_join(normalized)
+	if FileAccess.file_exists(project_path):
+		return project_path
+
+	return repo_path
+
+
+func _set_preview_status(message):
+	if message == _last_preview_status:
+		return
+	_last_preview_status = message
+	preview_status_changed.emit(message)
