@@ -43,12 +43,15 @@ var _live_sync_hint_label
 var _status_label
 var _live_sync_status_label
 var _help_label
+var _local_preview_player
 var _import_dialog
 var _export_dialog
 var _audio_dialog
 var _audio_dialog_mode = ""
 var _last_status_message = "Ready"
 var _last_live_sync_message = "Live sync idle"
+var _local_preview_stream_cache := {}
+var _local_preview_path = ""
 
 
 func _ready():
@@ -306,7 +309,6 @@ func _build_ui():
 	_world_view.ground_clicked.connect(_on_world_ground_clicked)
 	_world_view.ground_dragged.connect(_on_world_ground_dragged)
 	_world_view.drag_state_changed.connect(_on_world_drag_state_changed)
-	_world_view.preview_status_changed.connect(_on_preview_status_changed)
 	_viewport.add_child(_world_view)
 
 	_import_dialog = FileDialog.new()
@@ -332,6 +334,9 @@ func _build_ui():
 	])
 	_audio_dialog.file_selected.connect(_on_audio_file_selected)
 	add_child(_audio_dialog)
+
+	_local_preview_player = AudioStreamPlayer.new()
+	add_child(_local_preview_player)
 
 	call_deferred("_on_resized")
 	_update_record_button()
@@ -481,6 +486,7 @@ func _refresh_world_and_pose():
 		_selected_entity_index,
 		_gesture_recorder.get_trail_points()
 	)
+	_sync_local_preview()
 	_update_status_text()
 
 
@@ -834,13 +840,10 @@ func _on_sensor_toggled(enabled):
 
 func _on_local_preview_toggled(enabled):
 	if _world_view != null:
-		_world_view.set_audio_preview_enabled(enabled)
+		_world_view.set_audio_preview_enabled(false)
+	if not enabled and _local_preview_player != null:
+		_local_preview_player.stop()
 	_refresh_world_and_pose()
-
-
-func _on_preview_status_changed(message):
-	_last_live_sync_message = message
-	_update_status_text()
 
 
 func _on_live_sync_toggled(_enabled):
@@ -946,6 +949,23 @@ func _normalize_audio_asset_path(path):
 	return normalized
 
 
+func _resolve_audio_asset_path(path):
+	var normalized = path.replace("\\", "/")
+	if normalized.is_empty():
+		return normalized
+	if normalized.contains(":/") or normalized.begins_with("/"):
+		return normalized
+	var project_root = ProjectSettings.globalize_path("res://").replace("\\", "/").trim_suffix("/")
+	var repo_root = project_root.get_base_dir().get_base_dir().replace("\\", "/")
+	var repo_path = repo_root.path_join(normalized)
+	if FileAccess.file_exists(repo_path):
+		return repo_path
+	var project_path = project_root.path_join(normalized)
+	if FileAccess.file_exists(project_path):
+		return project_path
+	return repo_path
+
+
 func _resolve_output_path(path):
 	var normalized = path.replace("\\", "/")
 	if normalized.is_empty():
@@ -955,6 +975,64 @@ func _resolve_output_path(path):
 	var project_root = ProjectSettings.globalize_path("res://").replace("\\", "/").trim_suffix("/")
 	var repo_root = project_root.get_base_dir().get_base_dir().replace("\\", "/")
 	return repo_root.path_join(normalized)
+
+
+func _sync_local_preview():
+	if _local_preview_player == null:
+		return
+	if _local_preview_checkbox == null or not _local_preview_checkbox.button_pressed:
+		_local_preview_player.stop()
+		_last_live_sync_message = "Local preview: off"
+		return
+	if _selected_entity_index <= 0:
+		_local_preview_player.stop()
+		_last_live_sync_message = "Select a source to hear local preview"
+		return
+
+	var listener_pose = _project_model.get_entity_pose(0, _current_time_sec)
+	var source_pose = _project_model.get_entity_pose(_selected_entity_index, _current_time_sec)
+	var listener_position = listener_pose.get("position", Vector3.ZERO)
+	var source_position = source_pose.get("position", Vector3.ZERO)
+	var distance = listener_position.distance_to(source_position)
+
+	var entity = _project_model.get_entity(_selected_entity_index)
+	var resolved_path = _resolve_audio_asset_path(str(entity.get("audio_asset", "")))
+	if resolved_path.is_empty():
+		_local_preview_player.stop()
+		_last_live_sync_message = "Selected source has no audio file"
+		return
+
+	if resolved_path != _local_preview_path:
+		_local_preview_path = resolved_path
+		_local_preview_player.stop()
+		_local_preview_player.stream = _load_local_preview_stream(resolved_path)
+
+	if _local_preview_player.stream == null:
+		_last_live_sync_message = "Local preview missing WAV: %s" % resolved_path
+		return
+
+	var attenuation = 1.0 / (1.0 + 0.35 * distance * distance)
+	var source_gain_db = float(entity.get("gain_db", 0.0))
+	var preview_gain_db = source_gain_db + linear_to_db(max(attenuation, 0.0001))
+	_local_preview_player.volume_db = clampf(preview_gain_db, -60.0, 6.0)
+	if not _local_preview_player.playing:
+		_local_preview_player.play()
+	_last_live_sync_message = "Local preview playing: %s (distance %.2f)" % [
+		resolved_path.get_file(),
+		distance
+	]
+
+
+func _load_local_preview_stream(path):
+	if _local_preview_stream_cache.has(path):
+		return _local_preview_stream_cache[path]
+	if not FileAccess.file_exists(path):
+		return null
+	var stream = AudioStreamWAV.load_from_file(path)
+	if stream != null:
+		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		_local_preview_stream_cache[path] = stream
+	return stream
 
 
 func _maybe_send_live_snapshot():
