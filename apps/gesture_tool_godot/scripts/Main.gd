@@ -210,6 +210,10 @@ func _build_ui():
 	test_audio_button.text = "Play Selected Audio Now"
 	test_audio_button.pressed.connect(_on_play_selected_audio_now_pressed)
 	audio_buttons.add_child(test_audio_button)
+	var stop_audio_button := Button.new()
+	stop_audio_button.text = "Stop Preview"
+	stop_audio_button.pressed.connect(_on_stop_preview_pressed)
+	audio_buttons.add_child(stop_audio_button)
 	sidebar_body.add_child(audio_buttons)
 	_gain_spin = _make_spin_box(-60.0, 24.0, 0.1)
 	_gain_spin.value_changed.connect(_on_gain_changed)
@@ -945,6 +949,14 @@ func _on_play_selected_audio_now_pressed():
 	_local_preview_player.play()
 	_last_live_sync_message = "Manual preview playing: %s" % resolved_path.get_file()
 	_set_status_message("Manual preview triggered at full volume.")
+
+
+func _on_stop_preview_pressed():
+	if _local_preview_player == null:
+		return
+	_local_preview_player.stop()
+	_last_live_sync_message = "Preview stopped"
+	_set_status_message("Preview stopped.")
 
 
 func _configure_live_sync():
