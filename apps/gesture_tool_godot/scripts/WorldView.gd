@@ -10,6 +10,11 @@ var _camera: Camera3D
 var _world_nodes: Node3D
 var _entity_snapshots: Array = []
 var _dragging := false
+var _audio_listener: AudioListener3D
+var _preview_audio_player: AudioStreamPlayer3D
+var _audio_preview_enabled := true
+var _preview_audio_path := ""
+var _audio_stream_cache := {}
 
 
 func _ready() -> void:
@@ -49,6 +54,8 @@ func display_project(model, time_sec: float, selected_entity_index: int, raw_tra
 		var trail_mesh := MeshInstance3D.new()
 		trail_mesh.mesh = _build_polyline_mesh(raw_trail, Color(0.95, 0.95, 0.95))
 		_world_nodes.add_child(trail_mesh)
+
+	_sync_audio_preview(model, time_sec, selected_entity_index)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -99,6 +106,16 @@ func _build_static_scene() -> void:
 
 	_world_nodes = Node3D.new()
 	add_child(_world_nodes)
+
+	_audio_listener = AudioListener3D.new()
+	add_child(_audio_listener)
+
+	_preview_audio_player = AudioStreamPlayer3D.new()
+	_preview_audio_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	_preview_audio_player.max_distance = 100.0
+	_preview_audio_player.unit_size = 1.0
+	_preview_audio_player.max_db = 6.0
+	add_child(_preview_audio_player)
 
 
 func _spawn_entity(entity_index: int, entity: Dictionary, pose: Dictionary, color: Color, selected: bool, is_listener: bool) -> void:
@@ -202,3 +219,76 @@ func _project_mouse_to_ground(screen_position: Vector2):
 	var ray_direction := _camera.project_ray_normal(screen_position).normalized()
 	var ground := Plane(Vector3.UP, 0.0)
 	return ground.intersects_ray(ray_origin, ray_direction)
+
+
+func set_audio_preview_enabled(enabled):
+	_audio_preview_enabled = enabled
+	if not _audio_preview_enabled and _preview_audio_player != null:
+		_preview_audio_player.stop()
+
+
+func _sync_audio_preview(model, time_sec, selected_entity_index):
+	if _audio_listener == null or _preview_audio_player == null:
+		return
+
+	var listener_pose = TrajectoryTrack.evaluate(model.listener.get("track", {}), time_sec)
+	_audio_listener.position = listener_pose.get("position", Vector3.ZERO)
+	_audio_listener.rotation_degrees = listener_pose.get("rotation_euler_deg", Vector3.ZERO)
+	_audio_listener.make_current()
+
+	if not _audio_preview_enabled or selected_entity_index <= 0:
+		_preview_audio_player.stop()
+		return
+
+	var source_index = selected_entity_index - 1
+	if source_index < 0 or source_index >= model.sources.size():
+		_preview_audio_player.stop()
+		return
+
+	var source = model.sources[source_index]
+	var source_pose = TrajectoryTrack.evaluate(source.get("track", {}), time_sec)
+	_preview_audio_player.position = source_pose.get("position", Vector3.ZERO)
+	_preview_audio_player.rotation_degrees = source_pose.get("rotation_euler_deg", Vector3.ZERO)
+	_preview_audio_player.volume_db = float(source.get("gain_db", 0.0))
+
+	var resolved_path = _resolve_audio_asset_path(str(source.get("audio_asset", "")))
+	if resolved_path.is_empty():
+		_preview_audio_player.stop()
+		return
+
+	if resolved_path != _preview_audio_path:
+		_preview_audio_path = resolved_path
+		_preview_audio_player.stop()
+		_preview_audio_player.stream = _load_audio_stream(resolved_path)
+
+	if _preview_audio_player.stream == null:
+		return
+
+	if not _preview_audio_player.playing:
+		_preview_audio_player.play()
+
+
+func _load_audio_stream(path):
+	if _audio_stream_cache.has(path):
+		return _audio_stream_cache[path]
+
+	if not FileAccess.file_exists(path):
+		return null
+
+	var stream = AudioStreamWAV.load_from_file(path)
+	if stream != null:
+		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		_audio_stream_cache[path] = stream
+	return stream
+
+
+func _resolve_audio_asset_path(path):
+	var normalized = path.replace("\\", "/")
+	if normalized.is_empty():
+		return normalized
+	if normalized.contains(":/") or normalized.begins_with("/"):
+		return normalized
+
+	var project_root = ProjectSettings.globalize_path("res://").replace("\\", "/").trim_suffix("/")
+	var repo_root = project_root.get_base_dir().get_base_dir().replace("\\", "/")
+	return repo_root.path_join(normalized)

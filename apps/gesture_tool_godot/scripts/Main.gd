@@ -33,6 +33,7 @@ var _orbit_radius_spin
 var _orbit_duration_spin
 var _orbit_turns_spin
 var _record_button
+var _local_preview_checkbox
 var _sensor_checkbox
 var _live_sync_checkbox
 var _live_sync_host_edit
@@ -234,6 +235,11 @@ func _build_ui():
 	sidebar_body.add_child(orbit_button)
 
 	sidebar_body.add_child(_make_section_label("Input"))
+	_local_preview_checkbox = CheckBox.new()
+	_local_preview_checkbox.text = "Enable Local Audio Preview"
+	_local_preview_checkbox.button_pressed = true
+	_local_preview_checkbox.toggled.connect(_on_local_preview_toggled)
+	sidebar_body.add_child(_local_preview_checkbox)
 	_sensor_checkbox = CheckBox.new()
 	_sensor_checkbox.text = "Use Device Sensors When Available"
 	_sensor_checkbox.toggled.connect(_on_sensor_toggled)
@@ -294,6 +300,7 @@ func _build_ui():
 	viewport_container.add_child(_viewport)
 
 	_world_view = WorldView.new()
+	_world_view.set_audio_preview_enabled(true)
 	_world_view.entity_selected.connect(_on_world_entity_selected)
 	_world_view.ground_clicked.connect(_on_world_ground_clicked)
 	_world_view.ground_dragged.connect(_on_world_ground_dragged)
@@ -600,8 +607,12 @@ func _update_status_text():
 		_last_status_message
 	]
 	if _live_sync_status_label != null:
-		_live_sync_status_label.text = "%s\nOutput WAV: %s" % [
+		var local_preview_status = "Local preview: off"
+		if _local_preview_checkbox != null and _local_preview_checkbox.button_pressed:
+			local_preview_status = "Local preview: on"
+		_live_sync_status_label.text = "%s\n%s\nOutput WAV: %s" % [
 			_last_live_sync_message,
+			local_preview_status,
 			_live_sync_output_edit.text.strip_edges()
 		]
 
@@ -817,6 +828,12 @@ func _on_world_drag_state_changed(active):
 
 func _on_sensor_toggled(enabled):
 	_motion_controller.set_enabled(enabled)
+
+
+func _on_local_preview_toggled(enabled):
+	if _world_view != null:
+		_world_view.set_audio_preview_enabled(enabled)
+	_refresh_world_and_pose()
 
 
 func _on_live_sync_toggled(_enabled):
