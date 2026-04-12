@@ -1022,6 +1022,7 @@ func _sync_local_preview():
 	var distance = listener_position.distance_to(source_position)
 
 	var entity = _project_model.get_entity(_selected_entity_index)
+	var asset_path = str(entity.get("audio_asset", ""))
 	var resolved_path = _resolve_audio_asset_path(str(entity.get("audio_asset", "")))
 	if resolved_path.is_empty():
 		_local_preview_player.stop()
@@ -1031,7 +1032,7 @@ func _sync_local_preview():
 	if resolved_path != _local_preview_path:
 		_local_preview_path = resolved_path
 		_local_preview_player.stop()
-		_local_preview_player.stream = _load_local_preview_stream(resolved_path)
+		_local_preview_player.stream = _load_local_preview_stream(asset_path, resolved_path)
 
 	if _local_preview_player.stream == null:
 		_last_live_sync_message = "Local preview missing WAV: %s" % resolved_path
@@ -1049,16 +1050,41 @@ func _sync_local_preview():
 	]
 
 
-func _load_local_preview_stream(path):
-	if _local_preview_stream_cache.has(path):
-		return _local_preview_stream_cache[path]
-	if not FileAccess.file_exists(path):
+func _load_local_preview_stream(asset_path, resolved_path):
+	if _local_preview_stream_cache.has(resolved_path):
+		return _local_preview_stream_cache[resolved_path]
+
+	var resource_path = _to_preview_resource_path(asset_path, resolved_path)
+	if not resource_path.is_empty():
+		var resource_stream = load(resource_path)
+		if resource_stream != null:
+			_local_preview_stream_cache[resolved_path] = resource_stream
+			return resource_stream
+
+	if not FileAccess.file_exists(resolved_path):
 		return null
-	var stream = AudioStreamWAV.load_from_file(path)
+	var stream = AudioStreamWAV.load_from_file(resolved_path)
 	if stream != null:
 		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-		_local_preview_stream_cache[path] = stream
+		_local_preview_stream_cache[resolved_path] = stream
 	return stream
+
+
+func _to_preview_resource_path(asset_path, resolved_path):
+	var normalized_asset = asset_path.replace("\\", "/")
+	var normalized_resolved = resolved_path.replace("\\", "/")
+	var project_root = ProjectSettings.globalize_path("res://").replace("\\", "/").trim_suffix("/")
+
+	if normalized_asset.begins_with("apps/gesture_tool_godot/"):
+		return "res://%s" % normalized_asset.trim_prefix("apps/gesture_tool_godot/")
+
+	if normalized_asset.begins_with("assets/"):
+		return "res://%s" % normalized_asset
+
+	if normalized_resolved.begins_with(project_root + "/"):
+		return "res://%s" % normalized_resolved.trim_prefix(project_root + "/")
+
+	return ""
 
 
 func _maybe_send_live_snapshot():
