@@ -87,7 +87,11 @@ func get_entity_label(entity_index: int) -> String:
 		return "listener: %s" % listener.get("id", "listener_main")
 	var source_index := entity_index - 1
 	if source_index >= 0 and source_index < sources.size():
-		return "source: %s" % sources[source_index].get("id", "src")
+		var source = sources[source_index]
+		return "source: %s [%s]" % [
+			source.get("id", "src"),
+			_short_audio_name(str(source.get("audio_asset", "")))
+		]
 	return "unknown"
 
 
@@ -125,6 +129,17 @@ func set_duration(duration_sec: float) -> void:
 	project["duration_sec"] = max(duration_sec, 0.1)
 
 
+func set_source_name(source_index: int, source_name: String) -> void:
+	if source_index < 0 or source_index >= sources.size():
+		return
+	var resolved_name := source_name.strip_edges()
+	if resolved_name.is_empty():
+		return
+	if resolved_name != sources[source_index].get("id", "") and _id_exists(resolved_name):
+		return
+	sources[source_index]["id"] = resolved_name
+
+
 func _normalize_listener(data: Dictionary) -> Dictionary:
 	return {
 		"id": str(data.get("id", "listener_main")),
@@ -157,3 +172,9 @@ func _id_exists(candidate: String) -> bool:
 		if source.get("id", "") == candidate:
 			return true
 	return false
+
+
+func _short_audio_name(path: String) -> String:
+	if path.is_empty():
+		return "no-audio"
+	return path.get_file()

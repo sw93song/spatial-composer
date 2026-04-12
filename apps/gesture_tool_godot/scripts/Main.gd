@@ -26,7 +26,9 @@ var _key_time_spin
 var _position_spins: Array = []
 var _rotation_spins: Array = []
 var _orbit_center_spins: Array = []
+var _source_name_edit
 var _audio_asset_edit
+var _gain_spin
 var _orbit_radius_spin
 var _orbit_duration_spin
 var _orbit_turns_spin
@@ -35,13 +37,17 @@ var _sensor_checkbox
 var _live_sync_checkbox
 var _live_sync_host_edit
 var _live_sync_port_spin
+var _live_sync_output_edit
 var _live_sync_hint_label
 var _status_label
+var _live_sync_status_label
 var _help_label
 var _import_dialog
 var _export_dialog
 var _audio_dialog
 var _audio_dialog_mode = ""
+var _last_status_message = "Ready"
+var _last_live_sync_message = "Live sync idle"
 
 
 func _ready():
@@ -180,6 +186,10 @@ func _build_ui():
 	sidebar_body.add_child(_key_list)
 
 	sidebar_body.add_child(_make_section_label("Inspector"))
+	_source_name_edit = LineEdit.new()
+	_source_name_edit.placeholder_text = "Selected source name"
+	_source_name_edit.text_changed.connect(_on_source_name_changed)
+	sidebar_body.add_child(_labeled_row("Source Name", _source_name_edit))
 	_audio_asset_edit = LineEdit.new()
 	_audio_asset_edit.placeholder_text = "Select a WAV file for the selected source"
 	sidebar_body.add_child(_labeled_row("Audio File", _audio_asset_edit))
@@ -193,6 +203,9 @@ func _build_ui():
 	apply_audio_button.pressed.connect(_on_apply_audio_path_pressed)
 	audio_buttons.add_child(apply_audio_button)
 	sidebar_body.add_child(audio_buttons)
+	_gain_spin = _make_spin_box(-60.0, 24.0, 0.1)
+	_gain_spin.value_changed.connect(_on_gain_changed)
+	sidebar_body.add_child(_labeled_row("Gain (dB)", _gain_spin))
 	_key_time_spin = _make_spin_box(0.0, 600.0, 0.01)
 	sidebar_body.add_child(_labeled_row("Key Time", _key_time_spin))
 
@@ -239,10 +252,19 @@ func _build_ui():
 	_live_sync_port_spin.value = 49090
 	_live_sync_port_spin.value_changed.connect(_on_live_sync_endpoint_changed)
 	sidebar_body.add_child(_labeled_row("Port", _live_sync_port_spin))
+	_live_sync_output_edit = LineEdit.new()
+	_live_sync_output_edit.text = "build/windows-vs2026/live_preview.wav"
+	sidebar_body.add_child(_labeled_row("Output WAV", _live_sync_output_edit))
 	var live_sync_send_button := Button.new()
 	live_sync_send_button.text = "Send Snapshot"
 	live_sync_send_button.pressed.connect(_on_send_snapshot_pressed)
 	sidebar_body.add_child(live_sync_send_button)
+	var live_sync_tools := HBoxContainer.new()
+	var open_output_folder_button := Button.new()
+	open_output_folder_button.text = "Open Output Folder"
+	open_output_folder_button.pressed.connect(_on_open_output_folder_pressed)
+	live_sync_tools.add_child(open_output_folder_button)
+	sidebar_body.add_child(live_sync_tools)
 	_live_sync_hint_label = Label.new()
 	_live_sync_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_live_sync_hint_label.text = "Renderer command: spatial_preview_cli tcp-render <output.wav> 49090. If Godot runs on Windows and the renderer runs inside WSL2, use the WSL IP instead of 127.0.0.1."
@@ -252,6 +274,9 @@ func _build_ui():
 	_status_label = Label.new()
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sidebar_body.add_child(_status_label)
+	_live_sync_status_label = Label.new()
+	_live_sync_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sidebar_body.add_child(_live_sync_status_label)
 
 	_help_label = Label.new()
 	_help_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -386,19 +411,30 @@ func _refresh_key_list():
 
 
 func _refresh_audio_fields():
-	if _audio_asset_edit == null:
+	if _audio_asset_edit == null or _source_name_edit == null or _gain_spin == null:
 		return
 
+	_updating_ui = true
 	if _selected_entity_index == 0:
+		_source_name_edit.text = "listener_main"
+		_source_name_edit.editable = false
 		_audio_asset_edit.text = ""
 		_audio_asset_edit.editable = false
 		_audio_asset_edit.placeholder_text = "Listener has no audio asset"
+		_gain_spin.value = 0.0
+		_gain_spin.editable = false
+		_updating_ui = false
 		return
 
 	var entity = _project_model.get_entity(_selected_entity_index)
+	_source_name_edit.text = str(entity.get("id", "src"))
+	_source_name_edit.editable = true
 	_audio_asset_edit.text = str(entity.get("audio_asset", ""))
 	_audio_asset_edit.editable = true
 	_audio_asset_edit.placeholder_text = "Select a WAV file for the selected source"
+	_gain_spin.value = float(entity.get("gain_db", 0.0))
+	_gain_spin.editable = true
+	_updating_ui = false
 
 
 func _refresh_pose_fields():
@@ -556,12 +592,18 @@ func _update_status_text():
 		mode = "playing"
 	if _status_label == null:
 		return
-	_status_label.text = "Selected: %s | time %.2f s | mode: %s | drag samples: %d" % [
+	_status_label.text = "Selected: %s | time %.2f s | mode: %s | drag samples: %d\n%s" % [
 		_project_model.get_entity_label(_selected_entity_index),
 		_current_time_sec,
 		mode,
-		_gesture_recorder.get_sample_count()
+		_gesture_recorder.get_sample_count(),
+		_last_status_message
 	]
+	if _live_sync_status_label != null:
+		_live_sync_status_label.text = "%s\nOutput WAV: %s" % [
+			_last_live_sync_message,
+			_live_sync_output_edit.text.strip_edges()
+		]
 
 
 func _on_resized():
@@ -597,6 +639,14 @@ func _on_duration_changed(value):
 	_refresh_all()
 
 
+func _on_source_name_changed(new_text):
+	if _updating_ui or _selected_entity_index == 0:
+		return
+	_project_model.set_source_name(_selected_entity_index - 1, new_text)
+	_refresh_entity_list()
+	_refresh_world_and_pose()
+
+
 func _on_add_source_pressed():
 	_selected_entity_index = _project_model.add_source()
 	_selected_key_index = 0
@@ -615,6 +665,18 @@ func _on_assign_audio_pressed():
 		return
 	_audio_dialog_mode = "assign"
 	_audio_dialog.popup_centered_ratio()
+
+
+func _on_gain_changed(value):
+	if _updating_ui or _selected_entity_index == 0:
+		return
+	var entity := _project_model.get_entity(_selected_entity_index)
+	entity["gain_db"] = value
+	_project_model.set_entity(_selected_entity_index, entity)
+	_set_status_message("Gain set to %.1f dB" % value)
+	_refresh_entity_list()
+	_refresh_world_and_pose()
+	_maybe_send_live_snapshot()
 
 
 func _on_delete_source_pressed():
@@ -769,6 +831,16 @@ func _on_send_snapshot_pressed():
 	_send_live_snapshot()
 
 
+func _on_open_output_folder_pressed():
+	var resolved_output = _resolve_output_path(_live_sync_output_edit.text.strip_edges())
+	var output_dir = resolved_output.get_base_dir()
+	if output_dir.is_empty():
+		_set_status_message("Output folder is empty.")
+		return
+	OS.shell_open(output_dir)
+	_set_status_message("Opened output folder: %s" % output_dir)
+
+
 func _on_import_pressed():
 	_import_dialog.popup_centered_ratio()
 
@@ -834,6 +906,7 @@ func _set_selected_source_audio_asset(path):
 	_project_model.set_entity(_selected_entity_index, entity)
 	_refresh_audio_fields()
 	_set_status_message("Audio file set: %s" % path)
+	_refresh_entity_list()
 	_maybe_send_live_snapshot()
 
 
@@ -849,6 +922,17 @@ func _normalize_audio_asset_path(path):
 	return normalized
 
 
+func _resolve_output_path(path):
+	var normalized = path.replace("\\", "/")
+	if normalized.is_empty():
+		return normalized
+	if normalized.contains(":/") or normalized.begins_with("/"):
+		return normalized
+	var project_root = ProjectSettings.globalize_path("res://").replace("\\", "/").trim_suffix("/")
+	var repo_root = project_root.get_base_dir().get_base_dir().replace("\\", "/")
+	return repo_root.path_join(normalized)
+
+
 func _maybe_send_live_snapshot():
 	if _live_sync_checkbox != null and _live_sync_checkbox.button_pressed:
 		_send_live_snapshot()
@@ -858,15 +942,19 @@ func _send_live_snapshot():
 	_configure_live_sync()
 	var result := _live_sync_client.send_project_json(JsonSerializer.project_to_json_string(_project_model))
 	if result.get("ok", false):
-		_set_status_message("Live sync OK: %s (%s:%d)" % [
+		_last_live_sync_message = "Renderer OK: %s (%s:%d)" % [
 			result.get("message", "rendered"),
 			_live_sync_host_edit.text,
 			int(_live_sync_port_spin.value)
-		])
+		]
+		_set_status_message("Snapshot sent successfully.")
 	else:
-		_set_status_message("Live sync failed: %s" % result.get("message", "unknown error"))
+		_last_live_sync_message = "Renderer failed: %s" % result.get("message", "unknown error")
+		_set_status_message("Snapshot send/render failed.")
+	_update_status_text()
 
 
 func _set_status_message(message):
+	_last_status_message = message
 	if _status_label != null:
-		_status_label.text = message
+		_update_status_text()
