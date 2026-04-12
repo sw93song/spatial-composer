@@ -206,6 +206,10 @@ func _build_ui():
 	apply_audio_button.text = "Apply Audio Path"
 	apply_audio_button.pressed.connect(_on_apply_audio_path_pressed)
 	audio_buttons.add_child(apply_audio_button)
+	var test_audio_button := Button.new()
+	test_audio_button.text = "Play Selected Audio Now"
+	test_audio_button.pressed.connect(_on_play_selected_audio_now_pressed)
+	audio_buttons.add_child(test_audio_button)
 	sidebar_body.add_child(audio_buttons)
 	_gain_spin = _make_spin_box(-60.0, 24.0, 0.1)
 	_gain_spin.value_changed.connect(_on_gain_changed)
@@ -918,6 +922,28 @@ func _on_apply_audio_path_pressed():
 		_set_status_message("Enter or choose a WAV file path.")
 		return
 	_set_selected_source_audio_asset(path)
+
+
+func _on_play_selected_audio_now_pressed():
+	if _selected_entity_index <= 0:
+		_set_status_message("Select a source first.")
+		return
+	var entity = _project_model.get_entity(_selected_entity_index)
+	var resolved_path = _resolve_audio_asset_path(str(entity.get("audio_asset", "")))
+	if resolved_path.is_empty():
+		_set_status_message("Selected source has no audio file.")
+		return
+	var stream = _load_local_preview_stream(resolved_path)
+	if stream == null:
+		_set_status_message("Could not load WAV: %s" % resolved_path)
+		return
+	_local_preview_path = resolved_path
+	_local_preview_player.stop()
+	_local_preview_player.stream = stream
+	_local_preview_player.volume_db = 0.0
+	_local_preview_player.play()
+	_last_live_sync_message = "Manual preview playing: %s" % resolved_path.get_file()
+	_set_status_message("Manual preview triggered at full volume.")
 
 
 func _configure_live_sync():
