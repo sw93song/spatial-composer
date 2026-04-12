@@ -929,11 +929,12 @@ func _on_play_selected_audio_now_pressed():
 		_set_status_message("Select a source first.")
 		return
 	var entity = _project_model.get_entity(_selected_entity_index)
-	var resolved_path = _resolve_audio_asset_path(str(entity.get("audio_asset", "")))
+	var asset_path = str(entity.get("audio_asset", ""))
+	var resolved_path = _resolve_audio_asset_path(asset_path)
 	if resolved_path.is_empty():
 		_set_status_message("Selected source has no audio file.")
 		return
-	var stream = _load_local_preview_stream(resolved_path)
+	var stream = _load_local_preview_stream(asset_path, resolved_path)
 	if stream == null:
 		_set_status_message("Could not load WAV: %s" % resolved_path)
 		return
