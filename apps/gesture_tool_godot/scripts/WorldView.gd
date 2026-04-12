@@ -11,8 +11,7 @@ var _camera: Camera3D
 var _world_nodes: Node3D
 var _entity_snapshots: Array = []
 var _dragging := false
-var _audio_listener: AudioListener3D
-var _preview_audio_player: AudioStreamPlayer3D
+var _preview_audio_player: AudioStreamPlayer
 var _audio_preview_enabled := true
 var _preview_audio_path := ""
 var _audio_stream_cache := {}
@@ -110,14 +109,7 @@ func _build_static_scene() -> void:
 	_world_nodes = Node3D.new()
 	add_child(_world_nodes)
 
-	_audio_listener = AudioListener3D.new()
-	add_child(_audio_listener)
-
-	_preview_audio_player = AudioStreamPlayer3D.new()
-	_preview_audio_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
-	_preview_audio_player.max_distance = 100.0
-	_preview_audio_player.unit_size = 1.0
-	_preview_audio_player.max_db = 6.0
+	_preview_audio_player = AudioStreamPlayer.new()
 	add_child(_preview_audio_player)
 
 
@@ -232,13 +224,11 @@ func set_audio_preview_enabled(enabled):
 
 
 func _sync_audio_preview(model, time_sec, selected_entity_index):
-	if _audio_listener == null or _preview_audio_player == null:
+	if _preview_audio_player == null:
 		return
 
 	var listener_pose = TrajectoryTrack.evaluate(model.listener.get("track", {}), time_sec)
-	_audio_listener.position = listener_pose.get("position", Vector3.ZERO)
-	_audio_listener.rotation_degrees = listener_pose.get("rotation_euler_deg", Vector3.ZERO)
-	_audio_listener.make_current()
+	var listener_position = listener_pose.get("position", Vector3.ZERO)
 
 	if not _audio_preview_enabled or selected_entity_index <= 0:
 		_preview_audio_player.stop()
@@ -254,9 +244,12 @@ func _sync_audio_preview(model, time_sec, selected_entity_index):
 
 	var source = model.sources[source_index]
 	var source_pose = TrajectoryTrack.evaluate(source.get("track", {}), time_sec)
-	_preview_audio_player.position = source_pose.get("position", Vector3.ZERO)
-	_preview_audio_player.rotation_degrees = source_pose.get("rotation_euler_deg", Vector3.ZERO)
-	_preview_audio_player.volume_db = float(source.get("gain_db", 0.0))
+	var source_position = source_pose.get("position", Vector3.ZERO)
+	var distance = listener_position.distance_to(source_position)
+	var attenuation = 1.0 / (1.0 + 0.35 * distance * distance)
+	var source_gain_db = float(source.get("gain_db", 0.0))
+	var preview_gain_db = source_gain_db + linear_to_db(max(attenuation, 0.0001))
+	_preview_audio_player.volume_db = clampf(preview_gain_db, -60.0, 6.0)
 
 	var resolved_path = _resolve_audio_asset_path(str(source.get("audio_asset", "")))
 	if resolved_path.is_empty():
@@ -275,7 +268,10 @@ func _sync_audio_preview(model, time_sec, selected_entity_index):
 
 	if not _preview_audio_player.playing:
 		_preview_audio_player.play()
-	_set_preview_status("Local preview playing: %s" % resolved_path.get_file())
+	_set_preview_status("Local preview playing: %s (distance %.2f)" % [
+		resolved_path.get_file(),
+		distance
+	])
 
 
 func _load_audio_stream(path):
