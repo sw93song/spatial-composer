@@ -52,6 +52,7 @@ var _last_status_message = "Ready"
 var _last_live_sync_message = "Live sync idle"
 var _local_preview_stream_cache := {}
 var _local_preview_path = ""
+var _local_preview_restart_pending := false
 
 
 func _ready():
@@ -810,6 +811,7 @@ func _on_bake_orbit_pressed():
 func _on_world_entity_selected(index):
 	_selected_entity_index = index
 	_selected_key_index = 0
+	_local_preview_restart_pending = true
 	_refresh_all()
 
 
@@ -824,6 +826,7 @@ func _on_world_ground_clicked(position):
 func _on_world_ground_dragged(position):
 	_scene_drag_active = true
 	_live_sync_dirty_during_drag = true
+	_local_preview_restart_pending = true
 	_scene_drag_position = position
 	_set_selected_entity_pose(_current_time_sec, position, _read_rotation_from_inspector())
 	_refresh_key_list()
@@ -835,6 +838,7 @@ func _on_world_drag_state_changed(active):
 	_scene_drag_active = active
 	if active:
 		_live_sync_dirty_during_drag = false
+		_local_preview_restart_pending = true
 		return
 
 	if _live_sync_dirty_during_drag:
@@ -851,6 +855,7 @@ func _on_local_preview_toggled(enabled):
 		_world_view.set_audio_preview_enabled(false)
 	if not enabled and _local_preview_player != null:
 		_local_preview_player.stop()
+	_local_preview_restart_pending = enabled
 	_refresh_world_and_pose()
 
 
@@ -908,6 +913,7 @@ func _on_audio_file_selected(path):
 	if _audio_dialog_mode == "add":
 		_selected_entity_index = _project_model.add_source(resolved_path)
 		_selected_key_index = 0
+		_local_preview_restart_pending = true
 		_refresh_all()
 		_set_status_message("Added source with audio: %s" % resolved_path)
 		_maybe_send_live_snapshot()
@@ -955,6 +961,7 @@ func _on_stop_preview_pressed():
 	if _local_preview_player == null:
 		return
 	_local_preview_player.stop()
+	_local_preview_restart_pending = false
 	_last_live_sync_message = "Preview stopped"
 	_set_status_message("Preview stopped.")
 
@@ -970,6 +977,7 @@ func _set_selected_source_audio_asset(path):
 	var entity := _project_model.get_entity(_selected_entity_index)
 	entity["audio_asset"] = path
 	_project_model.set_entity(_selected_entity_index, entity)
+	_local_preview_restart_pending = true
 	_refresh_audio_fields()
 	_set_status_message("Audio file set: %s" % path)
 	_refresh_entity_list()
@@ -1021,10 +1029,12 @@ func _sync_local_preview():
 		return
 	if _local_preview_checkbox == null or not _local_preview_checkbox.button_pressed:
 		_local_preview_player.stop()
+		_local_preview_restart_pending = false
 		_last_live_sync_message = "Local preview: off"
 		return
 	if _selected_entity_index <= 0:
 		_local_preview_player.stop()
+		_local_preview_restart_pending = false
 		_last_live_sync_message = "Select a source to hear local preview"
 		return
 
@@ -1036,9 +1046,10 @@ func _sync_local_preview():
 
 	var entity = _project_model.get_entity(_selected_entity_index)
 	var asset_path = str(entity.get("audio_asset", ""))
-	var resolved_path = _resolve_audio_asset_path(str(entity.get("audio_asset", "")))
+	var resolved_path = _resolve_audio_asset_path(asset_path)
 	if resolved_path.is_empty():
 		_local_preview_player.stop()
+		_local_preview_restart_pending = false
 		_last_live_sync_message = "Selected source has no audio file"
 		return
 
@@ -1046,20 +1057,24 @@ func _sync_local_preview():
 		_local_preview_path = resolved_path
 		_local_preview_player.stop()
 		_local_preview_player.stream = _load_local_preview_stream(asset_path, resolved_path)
+		_local_preview_restart_pending = true
 
 	if _local_preview_player.stream == null:
+		_local_preview_restart_pending = false
 		_last_live_sync_message = "Local preview missing WAV: %s" % resolved_path
 		return
 
-	var attenuation = 1.0 / (1.0 + 0.35 * distance * distance)
+	var attenuation = 1.0 / (1.0 + 0.18 * distance * distance)
 	var source_gain_db = float(entity.get("gain_db", 0.0))
-	var preview_gain_db = source_gain_db + linear_to_db(max(attenuation, 0.0001))
-	_local_preview_player.volume_db = clampf(preview_gain_db, -60.0, 6.0)
-	if not _local_preview_player.playing:
+	var preview_gain_db = source_gain_db + 8.0 + linear_to_db(max(attenuation, 0.0001))
+	_local_preview_player.volume_db = clampf(preview_gain_db, -36.0, 12.0)
+	if _local_preview_restart_pending or not _local_preview_player.playing:
 		_local_preview_player.play()
-	_last_live_sync_message = "Local preview playing: %s (distance %.2f)" % [
+		_local_preview_restart_pending = false
+	_last_live_sync_message = "Local preview playing: %s (distance %.2f, %.1f dB)" % [
 		resolved_path.get_file(),
-		distance
+		distance,
+		_local_preview_player.volume_db
 	]
 
 
@@ -1071,6 +1086,9 @@ func _load_local_preview_stream(asset_path, resolved_path):
 	if not resource_path.is_empty():
 		var resource_stream = load(resource_path)
 		if resource_stream != null:
+			if resource_stream is AudioStreamWAV:
+				resource_stream = resource_stream.duplicate()
+				resource_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 			_local_preview_stream_cache[resolved_path] = resource_stream
 			return resource_stream
 
