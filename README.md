@@ -48,6 +48,9 @@ Standalone Godot companion app for:
 - manual keyframe editing
 - project import/export
 - path preview
+- source WAV assignment and in-app source preview
+- one-click offline render via the native CLI
+- rendered WAV playback from inside the app
 - direct dragging in the 3D scene
 - mouse gesture recording
 - optional mobile sensor-driven recording
@@ -113,7 +116,9 @@ For Windows Godot talking to a renderer inside WSL2, `127.0.0.1` may not be the 
 1. Install Godot 4.6.x on Windows.
 2. Open `apps/gesture_tool_godot/project.godot`.
 3. Run `scenes/Main.tscn` from the editor.
-4. Export with the normal Godot Windows desktop export flow when you are ready to package.
+4. In the app, set `Renderer CLI` to your built `spatial_preview_cli.exe` if the default path is wrong.
+5. Use `Render Now` for one-shot WAV generation, `Play Rendered Preview` to audition the native output, and `Send Snapshot` only if you want the separate live TCP renderer loop.
+6. Export with the normal Godot Windows desktop export flow when you are ready to package.
 
 On mobile exports, the Godot app can also use device sensors while recording if `Use Device Sensors When Available` is enabled.
 

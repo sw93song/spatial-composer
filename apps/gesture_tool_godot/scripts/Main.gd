@@ -38,15 +38,18 @@ var _sensor_checkbox
 var _live_sync_checkbox
 var _live_sync_host_edit
 var _live_sync_port_spin
+var _renderer_executable_edit
 var _live_sync_output_edit
 var _live_sync_hint_label
 var _status_label
 var _live_sync_status_label
 var _help_label
 var _local_preview_player
+var _rendered_preview_player
 var _import_dialog
 var _export_dialog
 var _audio_dialog
+var _renderer_dialog
 var _audio_dialog_mode = ""
 var _last_status_message = "Ready"
 var _last_live_sync_message = "Live sync idle"
@@ -270,6 +273,10 @@ func _build_ui():
 	_live_sync_port_spin.value = 49090
 	_live_sync_port_spin.value_changed.connect(_on_live_sync_endpoint_changed)
 	sidebar_body.add_child(_labeled_row("Port", _live_sync_port_spin))
+	_renderer_executable_edit = LineEdit.new()
+	_renderer_executable_edit.text = _default_renderer_executable_path()
+	_renderer_executable_edit.placeholder_text = "Path to spatial_preview_cli(.exe)"
+	sidebar_body.add_child(_labeled_row("Renderer CLI", _renderer_executable_edit))
 	_live_sync_output_edit = LineEdit.new()
 	_live_sync_output_edit.text = "build/windows-vs2026/live_preview.wav"
 	sidebar_body.add_child(_labeled_row("Output WAV", _live_sync_output_edit))
@@ -278,6 +285,22 @@ func _build_ui():
 	live_sync_send_button.pressed.connect(_on_send_snapshot_pressed)
 	sidebar_body.add_child(live_sync_send_button)
 	var live_sync_tools := HBoxContainer.new()
+	var browse_renderer_button := Button.new()
+	browse_renderer_button.text = "Browse Renderer..."
+	browse_renderer_button.pressed.connect(_on_browse_renderer_pressed)
+	live_sync_tools.add_child(browse_renderer_button)
+	var render_now_button := Button.new()
+	render_now_button.text = "Render Now"
+	render_now_button.pressed.connect(_on_render_now_pressed)
+	live_sync_tools.add_child(render_now_button)
+	var play_rendered_button := Button.new()
+	play_rendered_button.text = "Play Rendered Preview"
+	play_rendered_button.pressed.connect(_on_play_rendered_preview_pressed)
+	live_sync_tools.add_child(play_rendered_button)
+	var stop_rendered_button := Button.new()
+	stop_rendered_button.text = "Stop Rendered Preview"
+	stop_rendered_button.pressed.connect(_on_stop_rendered_preview_pressed)
+	live_sync_tools.add_child(stop_rendered_button)
 	var open_output_folder_button := Button.new()
 	open_output_folder_button.text = "Open Output Folder"
 	open_output_folder_button.pressed.connect(_on_open_output_folder_pressed)
@@ -285,7 +308,7 @@ func _build_ui():
 	sidebar_body.add_child(live_sync_tools)
 	_live_sync_hint_label = Label.new()
 	_live_sync_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_live_sync_hint_label.text = "Renderer command: spatial_preview_cli tcp-render <output.wav> 49090. If Godot runs on Windows and the renderer runs inside WSL2, use the WSL IP instead of 127.0.0.1."
+	_live_sync_hint_label.text = "Use Render Now for one-shot preview, or Send Snapshot for the live TCP renderer. If Godot runs on Windows and the renderer runs inside WSL2, use the WSL IP instead of 127.0.0.1."
 	sidebar_body.add_child(_live_sync_hint_label)
 
 	sidebar_body.add_child(_make_section_label("Status"))
@@ -298,7 +321,7 @@ func _build_ui():
 
 	_help_label = Label.new()
 	_help_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_help_label.text = "Shortcuts: Space play, K add key, R record, M orbit. In the 3D view, left click selects and drag moves on the ground plane."
+	_help_label.text = "Shortcuts: Space play, K add key, R record, M orbit. In the 3D view, left click selects and drag moves on the ground plane. Use Play Selected Audio Now for raw source audio and Play Rendered Preview for the native renderer output."
 	sidebar_body.add_child(_help_label)
 
 	var viewport_container := SubViewportContainer.new()
@@ -344,8 +367,20 @@ func _build_ui():
 	_audio_dialog.file_selected.connect(_on_audio_file_selected)
 	add_child(_audio_dialog)
 
+	_renderer_dialog = FileDialog.new()
+	_renderer_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_renderer_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_renderer_dialog.filters = PackedStringArray([
+		"*.exe ; Windows Executable",
+		"spatial_preview_cli ; CLI Renderer"
+	])
+	_renderer_dialog.file_selected.connect(_on_renderer_file_selected)
+	add_child(_renderer_dialog)
+
 	_local_preview_player = AudioStreamPlayer.new()
 	add_child(_local_preview_player)
+	_rendered_preview_player = AudioStreamPlayer.new()
+	add_child(_rendered_preview_player)
 
 	call_deferred("_on_resized")
 	_update_record_button()
@@ -867,8 +902,93 @@ func _on_live_sync_endpoint_changed(_value):
 	_configure_live_sync()
 
 
+func _on_browse_renderer_pressed():
+	if _renderer_dialog == null:
+		return
+	_renderer_dialog.popup_centered_ratio()
+
+
+func _on_renderer_file_selected(path):
+	if _renderer_executable_edit == null:
+		return
+	_renderer_executable_edit.text = path
+	_set_status_message("Renderer CLI set: %s" % path)
+
+
 func _on_send_snapshot_pressed():
 	_send_live_snapshot()
+
+
+func _on_render_now_pressed():
+	if _renderer_executable_edit == null:
+		return
+	var renderer_path = _resolve_renderer_executable_path(_renderer_executable_edit.text.strip_edges())
+	if renderer_path.is_empty():
+		_set_status_message("Set the renderer CLI path first.")
+		return
+	if not FileAccess.file_exists(renderer_path):
+		_set_status_message("Renderer CLI not found: %s" % renderer_path)
+		return
+
+	var output_path = _resolve_output_path(_live_sync_output_edit.text.strip_edges())
+	var output_dir = output_path.get_base_dir()
+	if output_dir.is_empty():
+		_set_status_message("Output WAV path is empty.")
+		return
+	DirAccess.make_dir_recursive_absolute(output_dir)
+
+	var temp_project_path = _write_temp_render_project()
+	if temp_project_path.is_empty():
+		_set_status_message("Could not write temp render project.")
+		return
+
+	var process_output: Array = []
+	var exit_code = OS.execute(
+		renderer_path,
+		PackedStringArray(["render", temp_project_path, output_path]),
+		process_output,
+		true,
+		false
+	)
+	if exit_code != 0:
+		var render_error = ""
+		if not process_output.is_empty():
+			render_error = str(process_output[0]).strip_edges()
+		_last_live_sync_message = "Render failed: %s" % renderer_path.get_file()
+		_set_status_message("Render failed (%d): %s" % [exit_code, render_error])
+		return
+
+	_last_live_sync_message = "Rendered preview: %s" % output_path
+	_set_status_message("Render complete: %s" % output_path.get_file())
+
+
+func _on_play_rendered_preview_pressed():
+	if _rendered_preview_player == null:
+		return
+	var output_path = _resolve_output_path(_live_sync_output_edit.text.strip_edges())
+	if output_path.is_empty() or not FileAccess.file_exists(output_path):
+		_set_status_message("Rendered WAV not found: %s" % output_path)
+		return
+	var stream = AudioStreamWAV.load_from_file(output_path)
+	if stream == null:
+		_set_status_message("Could not load rendered WAV: %s" % output_path)
+		return
+	if _local_preview_player != null:
+		_local_preview_player.stop()
+	_rendered_preview_player.stop()
+	_rendered_preview_player.stream = stream
+	_rendered_preview_player.volume_db = 0.0
+	_rendered_preview_player.play()
+	_last_live_sync_message = "Rendered preview playing: %s" % output_path.get_file()
+	_set_status_message("Playing rendered preview.")
+
+
+func _on_stop_rendered_preview_pressed():
+	if _rendered_preview_player == null:
+		return
+	_rendered_preview_player.stop()
+	_last_live_sync_message = "Rendered preview stopped"
+	_set_status_message("Rendered preview stopped.")
 
 
 func _on_open_output_folder_pressed():
@@ -948,6 +1068,8 @@ func _on_play_selected_audio_now_pressed():
 	if stream == null:
 		_set_status_message("Could not load WAV: %s" % resolved_path)
 		return
+	if _rendered_preview_player != null:
+		_rendered_preview_player.stop()
 	_local_preview_path = resolved_path
 	_local_preview_player.stop()
 	_local_preview_player.stream = stream
@@ -1022,6 +1144,57 @@ func _resolve_output_path(path):
 	var project_root = ProjectSettings.globalize_path("res://").replace("\\", "/").trim_suffix("/")
 	var repo_root = project_root.get_base_dir().get_base_dir().replace("\\", "/")
 	return repo_root.path_join(normalized)
+
+
+func _default_renderer_executable_path():
+	var project_root = ProjectSettings.globalize_path("res://").replace("\\", "/").trim_suffix("/")
+	var repo_root = project_root.get_base_dir().get_base_dir().replace("\\", "/")
+	var executable_dir = OS.get_executable_path().replace("\\", "/").get_base_dir()
+	var candidates := PackedStringArray([
+		repo_root.path_join("build/windows-vs2026/apps/spatial_preview_cli/Release/spatial_preview_cli.exe"),
+		repo_root.path_join("build/windows-ninja/apps/spatial_preview_cli/spatial_preview_cli.exe"),
+		repo_root.path_join("build/apps/spatial_preview_cli/spatial_preview_cli"),
+		executable_dir.path_join("spatial_preview_cli.exe"),
+		executable_dir.path_join("spatial_preview_cli")
+	])
+	for candidate in candidates:
+		if FileAccess.file_exists(candidate):
+			return candidate
+	return candidates[0]
+
+
+func _resolve_renderer_executable_path(path):
+	var normalized = path.replace("\\", "/")
+	if normalized.is_empty():
+		return ""
+	if normalized.contains(":/") or normalized.begins_with("/"):
+		return normalized
+	var project_root = ProjectSettings.globalize_path("res://").replace("\\", "/").trim_suffix("/")
+	var repo_root = project_root.get_base_dir().get_base_dir().replace("\\", "/")
+	return repo_root.path_join(normalized)
+
+
+func _make_render_project_dict() -> Dictionary:
+	var render_dict = _project_model.to_dict()
+	var render_sources: Array = []
+	for source_value in render_dict.get("sources", []):
+		if not (source_value is Dictionary):
+			continue
+		var source = source_value.duplicate(true)
+		var source_asset = str(source.get("audio_asset", ""))
+		source["audio_asset"] = _resolve_audio_asset_path(source_asset)
+		render_sources.append(source)
+	render_dict["sources"] = render_sources
+	return render_dict
+
+
+func _write_temp_render_project():
+	var temp_project_path = ProjectSettings.globalize_path("user://spatial_composer_render_project.json")
+	var file = FileAccess.open(temp_project_path, FileAccess.WRITE)
+	if file == null:
+		return ""
+	file.store_string(JSON.stringify(_make_render_project_dict(), "\t"))
+	return temp_project_path
 
 
 func _sync_local_preview():
