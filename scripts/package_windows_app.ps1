@@ -1,5 +1,5 @@
 param(
-    [string]$GodotExe = "godot",
+    [string]$GodotExe = "",
     [string]$CMakePreset = "windows-vs2026",
     [string]$ExportPreset = "Windows Desktop",
     [string]$AppName = "Wouldyou Spatial Composer.exe"
@@ -11,6 +11,43 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $godotProjectDir = Join-Path $repoRoot "apps\gesture_tool_godot"
 $exportDir = Join-Path $repoRoot "build\windows-app"
 $appPath = Join-Path $exportDir $AppName
+
+function Resolve-GodotExe {
+    param(
+        [string]$RequestedPath,
+        [string]$RepoRoot
+    )
+
+    if ($RequestedPath) {
+        if (Test-Path $RequestedPath) {
+            return (Resolve-Path $RequestedPath).Path
+        }
+
+        $command = Get-Command $RequestedPath -ErrorAction SilentlyContinue
+        if ($command) {
+            return $command.Source
+        }
+    }
+
+    $repoCandidates = Get-ChildItem -Path $RepoRoot -Filter "Godot*.exe" -File -ErrorAction SilentlyContinue |
+        Sort-Object Name
+    if ($repoCandidates) {
+        return $repoCandidates[0].FullName
+    }
+
+    $pathCandidates = @("godot", "godot4", "Godot_v4.6-stable_win64.exe")
+    foreach ($candidate in $pathCandidates) {
+        $command = Get-Command $candidate -ErrorAction SilentlyContinue
+        if ($command) {
+            return $command.Source
+        }
+    }
+
+    throw "Could not find Godot. Pass -GodotExe <path-to-godot.exe> or place a Godot*.exe in the repo root."
+}
+
+$GodotExe = Resolve-GodotExe -RequestedPath $GodotExe -RepoRoot $repoRoot
+Write-Host "Using Godot executable: $GodotExe"
 
 Write-Host "Configuring native renderer with preset $CMakePreset..."
 cmake --preset $CMakePreset
