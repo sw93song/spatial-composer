@@ -113,12 +113,32 @@ For Windows Godot talking to a renderer inside WSL2, `127.0.0.1` may not be the 
 
 ### Godot App
 
-1. Install Godot 4.6.x on Windows.
-2. Open `apps/gesture_tool_godot/project.godot`.
-3. Run `scenes/Main.tscn` from the editor.
-4. In the app, set `Renderer CLI` to your built `spatial_preview_cli.exe` if the default path is wrong.
-5. Use `Render Now` for one-shot WAV generation, `Play Rendered Preview` to audition the native output, and `Send Snapshot` only if you want the separate live TCP renderer loop.
-6. Export with the normal Godot Windows desktop export flow when you are ready to package.
+For development, you can still open `apps/gesture_tool_godot/project.godot` and run `scenes/Main.tscn` from the editor.
+
+For an actual standalone Windows app:
+
+1. Install Godot 4.6.x with Windows export templates on Windows.
+2. Build the native renderer with one of the Windows CMake presets below.
+3. Run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\package_windows_app.ps1
+```
+
+That script:
+
+- builds `spatial_preview_cli.exe`
+- exports the Godot app as `build\windows-app\Wouldyou Spatial Composer.exe`
+- copies `spatial_preview_cli.exe` next to the exported app
+- copies `phonon.dll` when present
+
+Then launch:
+
+```powershell
+.\build\windows-app\Wouldyou Spatial Composer.exe
+```
+
+Inside the exported app, `Renderer CLI` should auto-resolve to the copied `spatial_preview_cli.exe` next to it. If it does not, set it manually once.
 
 On mobile exports, the Godot app can also use device sensors while recording if `Use Device Sensors When Available` is enabled.
 
